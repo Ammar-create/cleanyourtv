@@ -1893,8 +1893,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                         float dx = before[i] - v.getX();
                         if (Math.abs(dx) > 0.5f) {
                             v.setTranslationX(dx);
-                            v.animate().translationX(0f).setDuration(260)
-                                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+                            v.animate().translationX(0f).setDuration(420)
+                                    .setInterpolator(new android.view.animation.OvershootInterpolator(1.6f)).start();
                         }
                     }
                 }
@@ -1909,7 +1909,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final float[] before = new float[bar.getChildCount()];
         for (int i = 0; i < before.length; i++) before[i] = bar.getChildAt(i).getX();
         dustBurst(btnReorder);
-        btnReorder.animate().alpha(0f).scaleX(0.72f).scaleY(0.72f).setDuration(140)
+        btnReorder.animate().setDuration(140)
                 .withEndAction(new Runnable() {
                     @Override public void run() {
                         btnReorder.setVisibility(View.GONE);
@@ -1921,8 +1921,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                                     float dx = before[i] - v.getX();
                                     if (Math.abs(dx) > 0.5f) {
                                         v.setTranslationX(dx);
-                                        v.animate().translationX(0f).setDuration(240)
-                                                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+                                        v.animate().translationX(0f).setDuration(420)
+                                                .setInterpolator(new android.view.animation.OvershootInterpolator(1.6f)).start();
                                     }
                                 }
                             }
@@ -2075,46 +2075,67 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    /** Cartoon squash-and-stretch on press: it swells, then settles back. */
-    private void bounce(View v) {
-        v.animate().cancel();
-        v.animate().scaleX(1.09f).scaleY(1.09f).setDuration(90)
-                .setInterpolator(new android.view.animation.DecelerateInterpolator())
-                .withEndAction(new Runnable() {
-                    @Override public void run() {
-                        v.animate().scaleX(1f).scaleY(1f).setDuration(210)
-                                .setInterpolator(new android.view.animation.OvershootInterpolator(2.4f)).start();
-                    }
-                }).start();
+    /** One axis of a bouncy spring, mirroring the reference project's damping 0.5. */
+    private void springScale(View v, float target, float stiffness) {
+        try {
+            androidx.dynamicanimation.animation.SpringForce fx =
+                    new androidx.dynamicanimation.animation.SpringForce(target);
+            fx.setDampingRatio(0.5f);
+            fx.setStiffness(stiffness);
+            new androidx.dynamicanimation.animation.SpringAnimation(v,
+                    androidx.dynamicanimation.animation.DynamicAnimation.SCALE_X).setSpring(fx).start();
+            androidx.dynamicanimation.animation.SpringForce fy =
+                    new androidx.dynamicanimation.animation.SpringForce(target);
+            fy.setDampingRatio(0.5f);
+            fy.setStiffness(stiffness);
+            new androidx.dynamicanimation.animation.SpringAnimation(v,
+                    androidx.dynamicanimation.animation.DynamicAnimation.SCALE_Y).setSpring(fy).start();
+        } catch (Throwable ignored) {
+            v.setScaleX(target);
+            v.setScaleY(target);
+        }
     }
 
-    /** The pill turning to dust: a burst of fragments that fly out and fade. */
+    /** Press: soft spring down to 0.94, release: stiff spring back with a visible wobble. */
+    private void bounce(final View v) {
+        springScale(v, 0.94f, 200f);
+        v.postDelayed(new Runnable() {
+            @Override public void run() { springScale(v, 1f, 1500f); }
+        }, 95);
+    }
+
+    /** The pill turning to dust: many fragments, staggered, drifting out and down. */
     private void dustBurst(final View v) {
         final android.view.ViewGroup host = root;
         final Rect r = new Rect(0, 0, v.getWidth(), v.getHeight());
         root.offsetDescendantRectToMyCoords(v, r);
         final java.util.Random rnd = new java.util.Random();
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < 70; i++) {
             final View dot = new View(this);
-            int size = (int) (3 * density + rnd.nextInt((int) (4 * density)));
+            int size = (int) (5 * density + rnd.nextInt((int) (8 * density)));
             android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
             g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
-            g.setColor(0xFFEDEDED);
+            int shade = 190 + rnd.nextInt(65);
+            g.setColor(0xFF000000 | (shade << 16) | (shade << 8) | shade);
             dot.setBackground(g);
             android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(size, size);
             lp.leftMargin = r.left + rnd.nextInt(Math.max(1, r.width()));
             lp.topMargin = r.top + rnd.nextInt(Math.max(1, r.height()));
             host.addView(dot, lp);
-            float dx = (rnd.nextFloat() - 0.5f) * 190 * density;
-            float dy = (rnd.nextFloat() - 0.35f) * 150 * density;
+            float dx = (rnd.nextFloat() - 0.5f) * 260 * density;
+            float dy = (rnd.nextFloat() * 0.65f + 0.35f) * 190 * density;
+            dot.setAlpha(1f);
             dot.animate().translationX(dx).translationY(dy)
-                    .alpha(0f).scaleX(0.2f).scaleY(0.2f)
-                    .setDuration(360 + rnd.nextInt(240))
-                    .setInterpolator(new android.view.animation.AccelerateInterpolator(1.4f))
+                    .alpha(0f).scaleX(0.15f).scaleY(0.15f)
+                    .setStartDelay(rnd.nextInt(120))
+                    .setDuration(650 + rnd.nextInt(250))
+                    .setInterpolator(new android.view.animation.AccelerateInterpolator(1.1f))
                     .withEndAction(new Runnable() {
                         @Override public void run() { host.removeView(dot); }
                     }).start();
         }
+        // the pill itself dissolves underneath the fragments
+        v.animate().alpha(0f).scaleX(0.6f).scaleY(0.6f).setDuration(260).start();
     }
 
     private void showInputs() {
