@@ -2022,9 +2022,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             });
             java.io.File parent = dir.getParentFile();
             if (parent != null) rows.addView(folderRow(rows, "\u2190 " + parent.getName(), parent, dialog));
+            int shown = 0;
             for (final java.io.File f : subs) {
                 if (!f.isDirectory() || f.getName().startsWith(".")) continue;
                 rows.addView(folderRow(rows, f.getName(), f, dialog));
+            }
+            for (final java.io.File f : subs) {
+                if (!imageFile(f) || shown >= 24) continue;
+                if (f.getName().startsWith(".")) continue;
+                rows.addView(imageRow(rows, f, dialog));
+                shown++;
             }
         }
 
@@ -2064,6 +2071,37 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /** Re-applies the chosen wallpaper after a restart or an APK update. */
+
+    /** A thumbnail row: the picture itself plus its name; OK makes it the wallpaper. */
+    private View imageRow(android.widget.LinearLayout rows, final java.io.File file, final Dialog dialog) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        android.widget.ImageView icon = row.findViewById(R.id.icon);
+        android.widget.LinearLayout.LayoutParams lp =
+                new android.widget.LinearLayout.LayoutParams((int) (34 * density), (int) (34 * density));
+        icon.setLayoutParams(lp);
+        icon.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        try {
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), o);
+            int sample = 1;
+            while (o.outWidth / (sample * 2) >= 64 && o.outHeight / (sample * 2) >= 64) sample *= 2;
+            o.inJustDecodeBounds = false;
+            o.inSampleSize = sample;
+            icon.setImageBitmap(android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), o));
+        } catch (Exception | OutOfMemoryError ignored) { }
+        ((TextView) row.findViewById(R.id.title)).setText(file.getName());
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                saveWallpaperFrom(Uri.fromFile(file));
+                dialog.dismiss();
+            }
+        });
+        return row;
+    }
+
     private void restoreVelvetWallpaper() {
         String mode = wpPrefs().getString("mode", "none");
         if ("file".equals(mode)) {
@@ -2076,17 +2114,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /** One axis of a bouncy spring, mirroring the reference project's damping 0.5. */
-    private void springScale(View v, float target, float stiffness) {
+    private void springScale(View v, float target, float stiffness, float damping) {
         try {
             androidx.dynamicanimation.animation.SpringForce fx =
                     new androidx.dynamicanimation.animation.SpringForce(target);
-            fx.setDampingRatio(0.5f);
+            fx.setDampingRatio(damping);
             fx.setStiffness(stiffness);
             new androidx.dynamicanimation.animation.SpringAnimation(v,
                     androidx.dynamicanimation.animation.DynamicAnimation.SCALE_X).setSpring(fx).start();
             androidx.dynamicanimation.animation.SpringForce fy =
                     new androidx.dynamicanimation.animation.SpringForce(target);
-            fy.setDampingRatio(0.5f);
+            fy.setDampingRatio(damping);
             fy.setStiffness(stiffness);
             new androidx.dynamicanimation.animation.SpringAnimation(v,
                     androidx.dynamicanimation.animation.DynamicAnimation.SCALE_Y).setSpring(fy).start();
@@ -2096,12 +2134,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     }
 
-    /** Press: soft spring down to 0.94, release: stiff spring back with a visible wobble. */
+    /** Press: quick squash to 0.88. Release: a long, under-damped spring that visibly wobbles. */
     private void bounce(final View v) {
-        springScale(v, 0.94f, 200f);
+        springScale(v, 0.88f, 1400f, 0.95f);
         v.postDelayed(new Runnable() {
-            @Override public void run() { springScale(v, 1f, 1500f); }
-        }, 95);
+            @Override public void run() { springScale(v, 1f, 280f, 0.28f); }
+        }, 110);
     }
 
     /** The pill turning to dust: many fragments, staggered, drifting out and down. */
@@ -2110,9 +2148,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final Rect r = new Rect(0, 0, v.getWidth(), v.getHeight());
         root.offsetDescendantRectToMyCoords(v, r);
         final java.util.Random rnd = new java.util.Random();
-        for (int i = 0; i < 70; i++) {
+        for (int i = 0; i < 120; i++) {
             final View dot = new View(this);
-            int size = (int) (5 * density + rnd.nextInt((int) (8 * density)));
+            int size = (int) (8 * density + rnd.nextInt((int) (11 * density)));
             android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
             g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
             int shade = 190 + rnd.nextInt(65);
@@ -2127,8 +2165,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             dot.setAlpha(1f);
             dot.animate().translationX(dx).translationY(dy)
                     .alpha(0f).scaleX(0.15f).scaleY(0.15f)
-                    .setStartDelay(rnd.nextInt(120))
-                    .setDuration(650 + rnd.nextInt(250))
+                    .setStartDelay(rnd.nextInt(220))
+                    .setDuration(900 + rnd.nextInt(320))
                     .setInterpolator(new android.view.animation.AccelerateInterpolator(1.1f))
                     .withEndAction(new Runnable() {
                         @Override public void run() { host.removeView(dot); }
