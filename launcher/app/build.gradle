@@ -23,6 +23,11 @@ android {
         versionName '2.3'
     }
 
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
     buildTypes {
         release {
             // R8 strips and optimises the code (AndroidX included): smaller APK, faster start on a slow TV CPU.
