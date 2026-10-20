@@ -171,6 +171,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private android.widget.ImageView wallpaperView;
     private static final int REQ_WALLPAPER_FILE = 4101;
     private static final int REQ_WALLPAPER_TREE = 4102;
+    private static final int REQ_WALLPAPER_PERM = 4103;
     /** dock_apps as loaded (config.xml or a theme): a saved Order only applies while these are unchanged. */
     private List<String> dockApps;
     /** fill_dock false: the dock can have empty slots, which reorder mode leaves out and restores afterwards. */
@@ -1781,12 +1782,38 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } catch (ActivityNotFoundException ignored) { }
     }
 
+    /** This TV has no DocumentsUI, so the folder is fixed rather than picked. */
+    private java.io.File wallpaperFolder() {
+        java.io.File a = new java.io.File(Environment.getExternalStorageDirectory(), "Pictures/Wallpapers");
+        if (a.isDirectory()) return a;
+        java.io.File b = new java.io.File(Environment.getExternalStorageDirectory(), "Pictures");
+        return b.isDirectory() ? b : a;
+    }
+
+    private boolean imageFile(java.io.File f) {
+        if (f == null || !f.isFile()) return false;
+        String n = f.getName().toLowerCase(java.util.Locale.US);
+        return n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".png") || n.endsWith(".webp");
+    }
+
     private void pickWallpaperFolder() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
-        try {
-            startActivityForResult(i, REQ_WALLPAPER_TREE);
-        } catch (ActivityNotFoundException ignored) { }
+        if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
+            return;
+        }
+        java.io.File dir = wallpaperFolder();
+        wpPrefs().edit().putString("mode", "folder").putString("dir", dir.getAbsolutePath()).putInt("index", 0).apply();
+        nextFolderWallpaper(true);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode == REQ_WALLPAPER_PERM && results.length > 0
+                && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            pickWallpaperFolder();
+        }
     }
 
     private void saveWallpaperFrom(Uri uri) {
@@ -1805,42 +1832,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         } catch (Exception ignored) { }
     }
 
-    /** Shows the next image of the chosen folder; every return to Home advances it. */
+    /** Shows the next image of the wallpaper folder; every return to Home advances it. */
     private void nextFolderWallpaper(boolean restart) {
         android.content.SharedPreferences sp = wpPrefs();
         if (!"folder".equals(sp.getString("mode", ""))) return;
-        String saved = sp.getString("dir", null);
-        if (saved == null) return;
-        try {
-            Uri tree = Uri.parse(saved);
-            String docId = android.provider.DocumentsContract.getTreeDocumentId(tree);
-            Uri children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(tree, docId);
-            java.util.List<String> ids = new java.util.ArrayList<>();
-            android.database.Cursor c = getContentResolver().query(children, new String[]{
-                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                    android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE}, null, null, null);
-            if (c != null) {
-                while (c.moveToNext()) {
-                    String mime = c.getString(1);
-                    if (mime != null && mime.startsWith("image/")) ids.add(c.getString(0));
-                }
-                c.close();
-            }
-            if (ids.isEmpty()) return;
-            int index = restart ? 0 : sp.getInt("index", 0) % ids.size();
-            sp.edit().putInt("index", (index + 1) % ids.size()).apply();
-            Uri doc = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, ids.get(index));
-            java.io.File out = new java.io.File(getCacheDir(), "rotating_wallpaper.jpg");
-            java.io.InputStream in = getContentResolver().openInputStream(doc);
-            if (in == null) return;
-            java.io.FileOutputStream fo = new java.io.FileOutputStream(out);
-            byte[] buf = new byte[64 * 1024];
-            int n;
-            while ((n = in.read(buf)) > 0) fo.write(buf, 0, n);
-            in.close();
-            fo.close();
-            showWallpaper(out);
-        } catch (Exception ignored) { }
+        java.io.File dir = new java.io.File(sp.getString("dir", wallpaperFolder().getAbsolutePath()));
+        if (!dir.isDirectory()) return;
+        java.io.File[] files = dir.listFiles(this::imageFile);
+        if (files == null || files.length == 0) return;
+        java.util.Arrays.sort(files, (x, y) -> x.getName().compareToIgnoreCase(y.getName()));
+        int index = restart ? 0 : sp.getInt("index", 0) % files.length;
+        sp.edit().putInt("index", (index + 1) % files.length).apply();
+        showWallpaper(files[index]);
     }
 
     private void showInputs() {
