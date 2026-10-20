@@ -1817,7 +1817,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void pickWallpaperFolder() {
         if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
+            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
             return;
         }
         java.io.File dir = wallpaperFolder();
@@ -1836,6 +1837,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void saveWallpaperFrom(Uri uri) {
         try {
+            if ("file".equals(uri.getScheme()) && uri.getPath() != null) {
+                java.io.File parent = new java.io.File(uri.getPath()).getParentFile();
+                if (parent != null) wpPrefs().edit().putString("browser_dir", parent.getAbsolutePath()).apply();
+            }
             java.io.File out = new java.io.File(getFilesDir(), "user_wallpaper.jpg");
             java.io.InputStream in = getContentResolver().openInputStream(uri);
             if (in == null) return;
@@ -1962,7 +1967,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private void showFolderPicker() {
         if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
+            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
             return;
         }
         pickerForRotation = true;
@@ -1970,11 +1976,13 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void openBrowser() {
-        String start = wpPrefs().getString("dir", Environment.getExternalStorageDirectory().getAbsolutePath());
+        String start = wpPrefs().getString("browser_dir",
+                wpPrefs().getString("dir", Environment.getExternalStorageDirectory().getAbsolutePath()));
         buildFolderDialog(start, pickerForRotation);
     }
 
     private void buildFolderDialog(final String path, final boolean forRotation) {
+        wpPrefs().edit().putString("browser_dir", path).apply();
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
