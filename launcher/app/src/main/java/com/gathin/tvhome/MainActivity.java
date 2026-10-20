@@ -867,6 +867,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Ends the mode and saves the order if it changed since the mode started. */
     private void endReorder() {
         if (!reordering) return;
+        if (btnReorder.getVisibility() == View.VISIBLE) dustBurst(btnReorder);
         hideReorderPill();
         drop();
         reordering = false;
@@ -2241,9 +2242,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final Rect r = new Rect(0, 0, v.getWidth(), v.getHeight());
         root.offsetDescendantRectToMyCoords(v, r);
         final java.util.Random rnd = new java.util.Random();
-        for (int i = 0; i < 120; i++) {
+        for (int i = 0; i < 200; i++) {
             final View dot = new View(this);
-            int size = (int) (8 * density + rnd.nextInt((int) (11 * density)));
+            int size = (int) (10 * density + rnd.nextInt((int) (14 * density)));
             android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
             g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
             int shade = 190 + rnd.nextInt(65);
@@ -2259,7 +2260,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             dot.animate().translationX(dx).translationY(dy)
                     .alpha(0f).scaleX(0.15f).scaleY(0.15f)
                     .setStartDelay(rnd.nextInt(220))
-                    .setDuration(900 + rnd.nextInt(320))
+                    .setDuration(1200 + rnd.nextInt(400))
                     .setInterpolator(new android.view.animation.AccelerateInterpolator(1.1f))
                     .withEndAction(new Runnable() {
                         @Override public void run() { host.removeView(dot); }
