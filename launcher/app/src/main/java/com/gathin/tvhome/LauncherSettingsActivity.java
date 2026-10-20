@@ -7,14 +7,28 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.widget.LinearLayout;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.animation.DecelerateInterpolator;
 import android.widget.TextView;
 import android.widget.Toast;
 
-/** Remote-friendly settings owned by the launcher; system settings stay one row away. */
+/**
+ * Remote-friendly settings owned by the launcher; system settings stay one tap away. The window is
+ * translucent (Theme.TvHome.Settings), so this page floats over Home while every control sits on its
+ * own glass card. Rows are plain {@link TextView}s driven by {@link #refresh()}; the column count is
+ * a {@link GlassSlider} instead of four chips.
+ */
 public final class LauncherSettingsActivity extends Activity {
+
+    /** Entrance: cards fade and rise 12dp, 40ms apart, top to bottom. */
+    private static final long ENTRANCE_MS = 320L;
+    private static final long ENTRANCE_STAGGER_MS = 40L;
+    private static final float ENTRANCE_RISE_DP = 12f;
+
     private SharedPreferences choices;
-    private final TextView[] columnChoices = new TextView[4];
+    private GlassSlider columnsSlider;
+    private TextView columnsValue;
     private TextView animationsChoice;
     private TextView advancedChoice;
     private TextView followThemeChoice;
@@ -28,29 +42,23 @@ public final class LauncherSettingsActivity extends Activity {
         setContentView(R.layout.activity_launcher_settings);
         choices = getSharedPreferences(Config.SETTINGS_NAME, MODE_PRIVATE);
         Config config = Config.load(this);
-        columns = config.columns;
+        // A theme may set any grid width; this picker only owns the 4..7 range it can show.
+        columns = Math.max(4, Math.min(7, config.columns));
         animations = config.animations;
         advancedEffects = config.animations && config.advancedEffects;
 
-        int[] ids = {R.id.columns4, R.id.columns5, R.id.columns6, R.id.columns7};
-        for (int i = 0; i < ids.length; i++) {
-            final int value = i + 4;
-            columnChoices[i] = findViewById(ids[i]);
-            columnChoices[i].setOnClickListener(v -> {
-                if (columns == value) return;
-                columns = value;
-                choices.edit().putInt("columns", value).apply();
-                setResult(RESULT_OK);
-                refresh();
-            });
-        }
-        // Keep the numeric choices increasing in the Hebrew reading direction. Reorder the
-        // actual views so D-pad focus follows their positions without changing the saved values.
-        if (getResources().getBoolean(R.bool.rtl_app_grid)) {
-            LinearLayout row = (LinearLayout) columnChoices[0].getParent();
-            row.removeAllViews();
-            for (int i = columnChoices.length - 1; i >= 0; i--) row.addView(columnChoices[i]);
-        }
+        columnsSlider = findViewById(R.id.columnsSlider);
+        columnsValue = findViewById(R.id.columnsValue);
+        columnsSlider.setValue(columns - 4);
+        columnsSlider.setOnValueChanged(index -> {
+            int value = index + 4;
+            if (columns == value) return;
+            columns = value;
+            choices.edit().putInt("columns", value).apply();
+            setResult(RESULT_OK);
+            refresh();
+        });
+
         final TextView rotationChoice = findViewById(R.id.rotationChoice);
         final int[] mins = {0, 15, 60, 360};
         final String[] labels = {"every visit", "15 min", "1 hour", "6 hours"};
@@ -99,7 +107,7 @@ public final class LauncherSettingsActivity extends Activity {
             if (!hasOnTvChoices()) return;
             choices.edit().remove("columns").remove("animations").remove("advanced_effects").commit();
             Config current = Config.load(this);
-            columns = current.columns;
+            columns = Math.max(4, Math.min(7, current.columns));
             animations = current.animations;
             advancedEffects = current.animations && current.advancedEffects;
             setResult(RESULT_OK);
@@ -111,8 +119,29 @@ public final class LauncherSettingsActivity extends Activity {
         });
         findViewById(R.id.tvSettingsChoice).setOnClickListener(v ->
                 open(new Intent(Settings.ACTION_SETTINGS)));
+
         refresh();
-        columnChoices[Math.max(0, Math.min(columns - 4, 3))].requestFocus();
+        columnsSlider.requestFocus();
+        playEntrance(config);
+    }
+
+    /** Fade and rise each direct child of the column, 40ms apart. Off for reduced motion. */
+    private void playEntrance(Config config) {
+        if (!config.animations || config.reducedMotion) return;
+        ViewGroup column = findViewById(R.id.settingsColumn);
+        float rise = ENTRANCE_RISE_DP * getResources().getDisplayMetrics().density;
+        for (int i = 0; i < column.getChildCount(); i++) {
+            View part = column.getChildAt(i);
+            part.setAlpha(0f);
+            part.setTranslationY(rise);
+            part.animate()
+                    .alpha(1f)
+                    .translationY(0f)
+                    .setDuration(ENTRANCE_MS)
+                    .setStartDelay(ENTRANCE_STAGGER_MS * i)
+                    .setInterpolator(new DecelerateInterpolator(1.8f))
+                    .start();
+        }
     }
 
     private void setAdvanced(boolean enabled) {
@@ -123,9 +152,8 @@ public final class LauncherSettingsActivity extends Activity {
     }
 
     private void refresh() {
-        for (int i = 0; i < columnChoices.length; i++) {
-            columnChoices[i].setSelected(columns == i + 4);
-        }
+        columnsSlider.setValue(columns - 4);
+        columnsValue.setText(getString(R.string.velvet_columns_value, columns));
         animationsChoice.setText(getString(R.string.animations_state,
                 getString(animations ? R.string.on : R.string.off)));
         advancedChoice.setText(getString(R.string.advanced_effects_state,

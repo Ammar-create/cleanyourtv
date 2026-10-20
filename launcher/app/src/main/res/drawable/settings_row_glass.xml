@@ -1,15 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Rows are bare inside their card; focus paints the floating pill on top. -->
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_focused="true">
-        <shape android:shape="rectangle">
-            <solid android:color="#4DFFFFFF" />
-            <corners android:radius="12dp" />
-        </shape>
-    </item>
+
+    <item android:state_focused="true" android:drawable="@drawable/settings_row_focused" />
+
     <item>
         <shape android:shape="rectangle">
             <solid android:color="#00000000" />
-            <corners android:radius="12dp" />
+            <corners android:radius="14dp" />
         </shape>
     </item>
 </selector>

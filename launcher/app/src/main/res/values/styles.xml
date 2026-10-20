@@ -6,6 +6,16 @@
         <item name="android:windowAnimationStyle">@null</item>
     </style>
 
+    <!-- Launcher settings floats over Home: a transparent window, so the wallpaper still moves
+         behind the glass cards. The page paints its own scrim (@drawable/settings_page_scrim). -->
+    <style name="Theme.TvHome.Settings" parent="Theme.TvHome">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
     <!-- Frosted pill, tvOS style. -->
     <style name="TopButtonBase">
         <item name="android:layout_width">wrap_content</item>
@@ -35,26 +45,33 @@
         <item name="android:drawablePadding">0dp</item>
     </style>
 
+    <!-- Rows: bare on the card glass, with the focus pill painted underneath the text. -->
     <style name="SettingsRow">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">54dp</item>
         <item name="android:gravity">center_vertical</item>
-        <item name="android:paddingStart">20dp</item>
-        <item name="android:paddingEnd">20dp</item>
+        <item name="android:paddingStart">22dp</item>
+        <item name="android:paddingEnd">22dp</item>
         <item name="android:background">@drawable/settings_row_glass</item>
-        <item name="android:textColor">#FFFFFFFF</item>
-        <item name="android:textSize">18sp</item>
+        <item name="android:textColor">@color/settings_row_text</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:fontFamily">@font/outfit_medium</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
     </style>
 
     <style name="SettingsHeader">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginStart">26dp</item>
-        <item name="android:layout_marginTop">30dp</item>
-        <item name="android:layout_marginBottom">8dp</item>
-        <item name="android:textColor">#8AFFFFFF</item>
-        <item name="android:textSize">13sp</item>
-        <item name="android:letterSpacing">0.08</item>
+        <item name="android:layout_marginStart">28dp</item>
+        <item name="android:layout_marginTop">22dp</item>
+        <item name="android:layout_marginBottom">7dp</item>
+        <item name="android:textColor">#7AFFFFFF</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:letterSpacing">0.12</item>
+        <item name="android:fontFamily">@font/outfit_medium</item>
     </style>
 
     <style name="SettingsCard">
@@ -62,20 +79,85 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginStart">12dp</item>
         <item name="android:layout_marginEnd">12dp</item>
-        <item name="android:background">@drawable/settings_card</item>
+        <item name="android:background">@drawable/glass_card</item>
+        <item name="android:elevation">4dp</item>
         <item name="android:clipChildren">true</item>
+        <item name="android:clipToOutline">true</item>
+        <item name="android:orientation">vertical</item>
     </style>
 
     <style name="SettingsDivider">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">1dp</item>
-        <item name="android:layout_marginStart">20dp</item>
-        <item name="android:background">#1FFFFFFF</item>
+        <item name="android:layout_marginStart">22dp</item>
+        <item name="android:layout_marginEnd">22dp</item>
+        <item name="android:background">#14FFFFFF</item>
     </style>
-    <style name="SettingsColumnChoice" parent="SettingsRow">
+
+    <!-- Hero: kicker, title, one muted line. -->
+    <style name="SettingsHeroKicker">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#66FFFFFF</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:letterSpacing">0.22</item>
+        <item name="android:fontFamily">@font/outfit_medium</item>
+    </style>
+
+    <style name="SettingsHeroTitle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:textSize">31sp</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:fontFamily">@font/outfit_medium</item>
+    </style>
+
+    <style name="SettingsHeroSub">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">3dp</item>
+        <item name="android:textColor">#94FFFFFF</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:fontFamily">@font/outfit</item>
+    </style>
+
+    <!-- Circular glass shortcut in the hero. Icons tint dark on the focused white disc. -->
+    <style name="SettingsIconButton">
+        <item name="android:layout_width">52dp</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:padding">15dp</item>
+        <item name="android:background">@drawable/glass_circle</item>
+        <item name="android:scaleType">fitCenter</item>
+        <item name="android:tint">@drawable/pill_text</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
+    </style>
+
+    <!-- Card heading line: "Columns" on the left, the live count on the right. -->
+    <style name="SettingsCardTitle">
         <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_weight">1</item>
-        <item name="android:layout_marginEnd">10dp</item>
-        <item name="android:gravity">center</item>
+        <item name="android:textColor">#FFFFFFFF</item>
+        <item name="android:textSize">18sp</item>
+        <item name="android:fontFamily">@font/outfit_medium</item>
+    </style>
+
+    <style name="SettingsCardValue">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#8AFFFFFF</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">@font/outfit</item>
+    </style>
+
+    <style name="SettingsCardHint">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#70FFFFFF</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:fontFamily">@font/outfit</item>
     </style>
 </resources>

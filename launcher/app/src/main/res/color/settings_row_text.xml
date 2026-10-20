@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Dark ink on the white focus pill, white on the dark glass. Same inversion the top-bar pills do. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true" android:color="#FF0B0B0C" />
+    <item android:color="#FFFFFFFF" />
+</selector>

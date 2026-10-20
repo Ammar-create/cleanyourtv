@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A grouped settings card: smoked fill, a specular band across the top, a 1dp rim. No blur:
+     this ROM has cross-window blur disabled, so the material is the gradient stack itself. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <gradient
+                android:angle="270"
+                android:startColor="#2BFFFFFF"
+                android:endColor="#12FFFFFF" />
+        </shape>
+    </item>
+
+    <!-- Top 42dp only. The last stop is fully transparent, so the slice's inner round edge
+         never shows: it reads as light falling off rather than as a second rectangle. -->
+    <item android:bottom="42dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <gradient
+                android:angle="270"
+                android:startColor="#38FFFFFF"
+                android:endColor="#00FFFFFF" />
+        </shape>
+    </item>
+
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="20dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#2EFFFFFF" />
+        </shape>
+    </item>
+</layer-list>

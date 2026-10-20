@@ -1,92 +1,168 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher settings, drawn as one floating glass page over Home: a translucent window, a scrim
+     that keeps the wallpaper readable behind the cards, a hero with the two system shortcuts, and
+     grouped glass cards whose rows are separated by hairlines. Every surface is a gradient stack
+     (@drawable/glass_hero, @drawable/glass_card) because this ROM has no backdrop blur. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/settingsRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#E6000000">
+    android:background="@drawable/settings_page_scrim">
 
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:scrollbars="none"
-        android:overScrollMode="never">
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:scrollbars="none">
 
+        <!-- The boxed column the whole page lives in. Direct children are the stagger units:
+             hero, then header + card per section, animated in onCreate. -->
         <LinearLayout
+            android:id="@+id/settingsColumn"
             android:layout_width="720dp"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
             android:orientation="vertical"
-            android:paddingTop="44dp"
-            android:paddingBottom="64dp">
+            android:paddingTop="18dp"
+            android:paddingBottom="20dp">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <LinearLayout
+                android:id="@+id/heroCard"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"
-                android:text="@string/launcher_settings"
-                android:textColor="#FFFFFFFF"
-                android:textSize="34sp"
-                android:fontFamily="@font/outfit_medium" />
+                android:layout_marginEnd="12dp"
+                android:background="@drawable/glass_hero"
+                android:elevation="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="26dp"
+                android:paddingTop="18dp"
+                android:paddingEnd="18dp"
+                android:paddingBottom="18dp">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/SettingsHeroKicker"
+                        android:text="@string/velvet_settings_kicker" />
+
+                    <TextView
+                        style="@style/SettingsHeroTitle"
+                        android:text="@string/launcher_settings" />
+
+                    <TextView
+                        style="@style/SettingsHeroSub"
+                        android:text="@string/velvet_settings_sub" />
+                </LinearLayout>
+
+                <!-- The two system shortcuts, as circular glass buttons. Same ids and the same
+                     listeners as the text rows they replace. -->
+                <ImageButton
+                    android:id="@+id/defaultHomeChoice"
+                    style="@style/SettingsIconButton"
+                    android:contentDescription="@string/home_settings"
+                    android:src="@drawable/ic_home_settings" />
+
+                <ImageButton
+                    android:id="@+id/tvSettingsChoice"
+                    style="@style/SettingsIconButton"
+                    android:layout_marginStart="10dp"
+                    android:contentDescription="@string/tv_settings"
+                    android:src="@drawable/ic_settings" />
+            </LinearLayout>
 
             <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
-                android:layout_marginTop="2dp"
-                android:text="@string/velvet_settings_sub"
-                android:textColor="#99FFFFFF"
-                android:textSize="14sp"
-                android:fontFamily="@font/outfit" />
+                style="@style/SettingsHeader"
+                android:text="@string/velvet_section_home" />
 
-            <TextView style="@style/SettingsHeader" android:text="@string/velvet_section_home" />
-
-            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="52dp"
-                    android:gravity="center_vertical"
-                    android:paddingStart="20dp"
-                    android:text="@string/velvet_columns"
-                    android:textColor="#FFFFFFFF"
-                    android:textSize="18sp"
-                    android:fontFamily="@font/outfit_medium" />
+            <LinearLayout style="@style/SettingsCard">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:paddingStart="20dp"
-                    android:paddingEnd="20dp"
-                    android:paddingBottom="14dp">
+                    android:paddingStart="22dp"
+                    android:paddingTop="16dp"
+                    android:paddingEnd="22dp">
 
-                    <TextView android:id="@+id/columns4" style="@style/SettingsColumnChoice" android:text="4" />
-                    <TextView android:id="@+id/columns5" style="@style/SettingsColumnChoice" android:text="5" />
-                    <TextView android:id="@+id/columns6" style="@style/SettingsColumnChoice" android:text="6" />
-                    <TextView android:id="@+id/columns7" style="@style/SettingsColumnChoice" android:text="7" />
+                    <TextView
+                        style="@style/SettingsCardTitle"
+                        android:text="@string/velvet_columns" />
+
+                    <TextView
+                        android:id="@+id/columnsValue"
+                        style="@style/SettingsCardValue" />
                 </LinearLayout>
+
+                <TextView
+                    style="@style/SettingsCardHint"
+                    android:layout_marginStart="22dp"
+                    android:layout_marginTop="1dp"
+                    android:layout_marginEnd="22dp"
+                    android:text="@string/velvet_columns_hint" />
+
+                <com.gathin.tvhome.GlassSlider
+                    android:id="@+id/columnsSlider"
+                    android:layout_width="match_parent"
+                    android:layout_height="76dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_marginTop="2dp"
+                    android:layout_marginEnd="10dp" />
             </LinearLayout>
 
-            <TextView style="@style/SettingsHeader" android:text="@string/velvet_section_motion" />
+            <TextView
+                style="@style/SettingsHeader"
+                android:text="@string/velvet_section_motion" />
 
-            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
-                <TextView android:id="@+id/animationsChoice" style="@style/SettingsRow" android:text="Animations" />
+            <LinearLayout
+                style="@style/SettingsCard"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp">
+
+                <TextView
+                    android:id="@+id/animationsChoice"
+                    style="@style/SettingsRow" />
+
                 <View style="@style/SettingsDivider" />
-                <TextView android:id="@+id/advancedChoice" style="@style/SettingsRow" android:text="@string/velvet_advanced" />
+
+                <TextView
+                    android:id="@+id/advancedChoice"
+                    style="@style/SettingsRow" />
             </LinearLayout>
 
-            <TextView style="@style/SettingsHeader" android:text="@string/velvet_section_wall" />
+            <TextView
+                style="@style/SettingsHeader"
+                android:text="@string/velvet_section_wall" />
 
-            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
-                <TextView android:id="@+id/rotationChoice" style="@style/SettingsRow" />
+            <LinearLayout
+                style="@style/SettingsCard"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp">
+
+                <TextView
+                    android:id="@+id/rotationChoice"
+                    style="@style/SettingsRow" />
             </LinearLayout>
 
-            <TextView style="@style/SettingsHeader" android:text="@string/velvet_section_system" />
+            <TextView
+                style="@style/SettingsHeader"
+                android:text="@string/velvet_section_system" />
 
-            <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
-                <TextView android:id="@+id/followThemeChoice" style="@style/SettingsRow" />
-                <View style="@style/SettingsDivider" />
-                <TextView android:id="@+id/defaultHomeChoice" style="@style/SettingsRow" />
-                <View style="@style/SettingsDivider" />
-                <TextView android:id="@+id/tvSettingsChoice" style="@style/SettingsRow" />
+            <LinearLayout
+                style="@style/SettingsCard"
+                android:paddingTop="5dp"
+                android:paddingBottom="5dp">
+
+                <TextView
+                    android:id="@+id/followThemeChoice"
+                    style="@style/SettingsRow" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>

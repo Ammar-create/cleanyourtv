@@ -104,5 +104,8 @@
     <string name="velvet_section_wall">WALLPAPER</string>
     <string name="velvet_section_system">SYSTEM</string>
     <string name="velvet_columns">Columns</string>
+    <string name="velvet_columns_hint">Apps in each home row</string>
+    <string name="velvet_columns_value">%1$d columns</string>
+    <string name="velvet_settings_kicker">CLEAN YOUR TV</string>
     <string name="velvet_advanced">Advanced effects</string>
 </resources>

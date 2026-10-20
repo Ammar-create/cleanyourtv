@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The window is translucent, so the wallpaper stays visible; this scrim is what keeps the page
+     readable without turning it into an opaque sheet. Vertical shade plus a soft vignette that
+     pulls the eye to the centred column. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#C9050507"
+                android:endColor="#F2070709" />
+        </shape>
+    </item>
+
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:centerX="0.5"
+                android:centerY="0.42"
+                android:gradientRadius="62%p"
+                android:startColor="#00000000"
+                android:endColor="#59000000" />
+        </shape>
+    </item>
+</layer-list>
