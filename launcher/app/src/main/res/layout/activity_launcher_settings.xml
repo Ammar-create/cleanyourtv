@@ -68,7 +68,7 @@
             <TextView style="@style/SettingsHeader" android:text="@string/velvet_section_motion" />
 
             <LinearLayout style="@style/SettingsCard" android:orientation="vertical">
-                <TextView android:id="@+id/animationsChoice" style="@style/SettingsRow" android:text="@string/animations" />
+                <TextView android:id="@+id/animationsChoice" style="@style/SettingsRow" android:text="Animations" />
                 <View style="@style/SettingsDivider" />
                 <TextView android:id="@+id/advancedChoice" style="@style/SettingsRow" android:text="@string/velvet_advanced" />
             </LinearLayout>
