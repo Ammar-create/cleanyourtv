@@ -448,10 +448,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnReorder.setVisibility(View.GONE);   // Velvet: only appears while editing the layout
         btnEdit = findViewById(R.id.btnEdit);
         btnEdit.setOnClickListener(v -> showEditMenu());
-        btnSettings.setOnLongClickListener(v -> {
-            showSettingsMenu();
-            return true;
-        });
+        // Velvet: configuration lives under the pencil now, one door instead of three.
 
         // Keep focus on the top bar at its ends and at the top: Android's focus finder would otherwise
         // jump to a tile far below when there is nothing in that direction.
@@ -1752,15 +1749,18 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** The pencil pill: wallpaper, layout editing and the hidden-apps shelf. */
     private void showEditMenu() {
         View anchor = findViewById(R.id.btnEdit);
-        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        View panel = getLayoutInflater().inflate(R.layout.popup_menu_scroll, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
-        PopupWindow popup = glassPopup(panel, (int) (210 * density));
+        PopupWindow popup = glassPopup(panel, (int) (230 * density));
         addSettingsMenuRow(rows, popup, R.string.velvet_wallpaper, this::showWallpaperMenu);
         addSettingsMenuRow(rows, popup, R.string.velvet_layout, this::startLayoutEdit);
         addSettingsMenuRow(rows, popup, R.string.velvet_hidden_apps, this::onLibraryRequested);
         addSettingsMenuRow(rows, popup, R.string.velvet_restore, this::restoreAllHidden);
+        addSettingsMenuRow(rows, popup, R.string.launcher_settings, () -> startActivityForResult(
+                new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST));
+        if (moduleCards) addSettingsMenuRow(rows, popup, R.string.module_cards, this::showModuleCards);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
-        popup.setWidth(Math.max((int) (210 * density), panel.getMeasuredWidth()));
+        popup.setWidth(Math.max((int) (230 * density), panel.getMeasuredWidth()));
         dropIn(popup, panel, anchor, Gravity.END);
         rows.getChildAt(0).requestFocus();
     }
@@ -2294,6 +2294,11 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             popup.dismiss();
             action.run();
         });
+        row.setOnKeyListener((v, code, event) -> {
+            if ((code == KeyEvent.KEYCODE_DPAD_CENTER || code == KeyEvent.KEYCODE_ENTER)
+                    && event.getAction() == KeyEvent.ACTION_DOWN && event.getRepeatCount() == 0) bounce(row);
+            return false;
+        });
     }
 
     private void addSettingsMenuRow(LinearLayout rows, PopupWindow popup, int title, Runnable action) {
@@ -2311,7 +2316,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         row.setOnKeyListener((v, code, event) -> {
             if (code != KeyEvent.KEYCODE_DPAD_CENTER && code != KeyEvent.KEYCODE_ENTER) return false;
             if (event.getAction() == KeyEvent.ACTION_DOWN) {
-                if (event.getRepeatCount() == 0) pressed[0] = true;
+                if (event.getRepeatCount() == 0) {
+                    pressed[0] = true;
+                    bounce(row);
+                }
                 return true;
             }
             boolean activate = pressed[0];
