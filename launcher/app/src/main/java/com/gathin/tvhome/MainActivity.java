@@ -2211,6 +2211,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         rows.getChildAt(0).requestFocus();
     }
 
+    /** Same row, for a label that is computed at runtime. */
+    private void addSettingsMenuRow(LinearLayout rows, PopupWindow popup, CharSequence title, Runnable action) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        row.findViewById(R.id.icon).setVisibility(View.GONE);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        ((TextView) row.findViewById(R.id.title)).setText(title);
+        row.setOnClickListener(v -> {
+            popup.dismiss();
+            action.run();
+        });
+    }
+
     private void addSettingsMenuRow(LinearLayout rows, PopupWindow popup, int title, Runnable action) {
         View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
         row.findViewById(R.id.icon).setVisibility(View.GONE);
