@@ -95,4 +95,6 @@
     <string name="velvet_hidden_apps">Hidden apps</string>
     <string name="velvet_restore">Restore hidden apps</string>
     <string name="velvet_wall_use">Use this folder</string>
+    <string name="velvet_wall_set">Set as current wallpaper</string>
+    <string name="velvet_wall_delete">Delete image</string>
 </resources>

@@ -172,6 +172,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final int REQ_WALLPAPER_FILE = 4101;
     private static final int REQ_WALLPAPER_TREE = 4102;
     private static final int REQ_WALLPAPER_PERM = 4103;
+    private boolean pickerForRotation = true;
     private final android.os.Handler wpHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private final Runnable rotateRunnable = new Runnable() {
         @Override public void run() {
@@ -1795,12 +1796,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void pickWallpaperImage() {
-        Intent i = new Intent(Intent.ACTION_GET_CONTENT);
-        i.setType("image/*");
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        try {
-            startActivityForResult(Intent.createChooser(i, getString(R.string.velvet_wall_pick)), REQ_WALLPAPER_FILE);
-        } catch (ActivityNotFoundException ignored) { }
+        pickerForRotation = false;
+        openBrowser();
     }
 
     /** This TV has no DocumentsUI, so the folder is fixed rather than picked. */
@@ -1968,11 +1965,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
             return;
         }
-        final String start = wpPrefs().getString("dir", Environment.getExternalStorageDirectory().getAbsolutePath());
-        buildFolderDialog(start);
+        pickerForRotation = true;
+        openBrowser();
     }
 
-    private void buildFolderDialog(final String path) {
+    private void openBrowser() {
+        String start = wpPrefs().getString("dir", Environment.getExternalStorageDirectory().getAbsolutePath());
+        buildFolderDialog(start, pickerForRotation);
+    }
+
+    private void buildFolderDialog(final String path, final boolean forRotation) {
         final Dialog dialog = new Dialog(this);
         dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
         android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
@@ -1997,6 +1999,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         wrap.addView(scroll, new android.widget.LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, (int) (330 * density)));
 
+        if (forRotation) {
         View use = getLayoutInflater().inflate(R.layout.item_input, rows, false);
         use.findViewById(R.id.icon).setVisibility(View.GONE);
         use.findViewById(R.id.dot).setVisibility(View.GONE);
@@ -2011,6 +2014,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         rows.addView(use);
+        }
 
         java.io.File dir = new java.io.File(path);
         java.io.File[] subs = dir.listFiles();
@@ -2021,16 +2025,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 }
             });
             java.io.File parent = dir.getParentFile();
-            if (parent != null) rows.addView(folderRow(rows, "\u2190 " + parent.getName(), parent, dialog));
+            if (parent != null) rows.addView(folderRow(rows, "\u2190 " + parent.getName(), parent, dialog, forRotation));
             int shown = 0;
             for (final java.io.File f : subs) {
                 if (!f.isDirectory() || f.getName().startsWith(".")) continue;
-                rows.addView(folderRow(rows, f.getName(), f, dialog));
+                rows.addView(folderRow(rows, f.getName(), f, dialog, forRotation));
             }
             for (final java.io.File f : subs) {
                 if (!imageFile(f) || shown >= 24) continue;
                 if (f.getName().startsWith(".")) continue;
-                rows.addView(imageRow(rows, f, dialog));
+                rows.addView(imageRow(rows, f, dialog, forRotation));
                 shown++;
             }
         }
@@ -2043,7 +2047,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         dialog.show();
     }
 
-    private View folderRow(android.widget.LinearLayout rows, String label, final java.io.File dir, final Dialog dialog) {
+    private View folderRow(android.widget.LinearLayout rows, String label, final java.io.File dir, final Dialog dialog, final boolean forRotation) {
         View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
         row.findViewById(R.id.icon).setVisibility(View.GONE);
         row.findViewById(R.id.dot).setVisibility(View.GONE);
@@ -2052,7 +2056,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         row.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 dialog.dismiss();
-                buildFolderDialog(dir.getAbsolutePath());
+                buildFolderDialog(dir.getAbsolutePath(), forRotation);
             }
         });
         return row;
@@ -2073,34 +2077,108 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Re-applies the chosen wallpaper after a restart or an APK update. */
 
     /** A thumbnail row: the picture itself plus its name; OK makes it the wallpaper. */
-    private View imageRow(android.widget.LinearLayout rows, final java.io.File file, final Dialog dialog) {
+    private View imageRow(android.widget.LinearLayout rows, final java.io.File file, final Dialog dialog, final boolean forRotation) {
         View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
         row.findViewById(R.id.dot).setVisibility(View.GONE);
         row.findViewById(R.id.status).setVisibility(View.GONE);
         android.widget.ImageView icon = row.findViewById(R.id.icon);
-        android.widget.LinearLayout.LayoutParams lp =
-                new android.widget.LinearLayout.LayoutParams((int) (34 * density), (int) (34 * density));
-        icon.setLayoutParams(lp);
+        int boxH = (int) (36 * density);
+        int boxW = boxH;
         icon.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
         icon.setImageTintList(null);   // item_input tints icons white; a photo must keep its colours
         try {
             android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
             o.inJustDecodeBounds = true;
             android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), o);
+            if (o.outHeight > 0) {
+                float ratio = o.outWidth / (float) o.outHeight;
+                boxW = Math.max((int) (18 * density), Math.min((int) (120 * density), (int) (boxH * ratio)));
+            }
             int sample = 1;
             while (o.outWidth / (sample * 2) >= 64 && o.outHeight / (sample * 2) >= 64) sample *= 2;
             o.inJustDecodeBounds = false;
             o.inSampleSize = sample;
             icon.setImageBitmap(android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), o));
         } catch (Exception | OutOfMemoryError ignored) { }
+        icon.setLayoutParams(new android.widget.LinearLayout.LayoutParams(boxW, boxH));
         ((TextView) row.findViewById(R.id.title)).setText(file.getName());
         row.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
+                if (forRotation) { showImageViewer(file, dialog); return; }
                 saveWallpaperFrom(Uri.fromFile(file));
                 dialog.dismiss();
             }
         });
+        row.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) {
+                showImageViewer(file, dialog);
+                return true;
+            }
+        });
         return row;
+    }
+
+    /** Full-size preview with the two actions that matter. */
+    private void showImageViewer(final java.io.File file, final Dialog parent) {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
+        wrap.setOrientation(android.widget.LinearLayout.VERTICAL);
+        wrap.setBackgroundResource(R.drawable.glass_panel);
+        int pad = (int) (10 * density);
+        wrap.setPadding(pad, pad, pad, pad);
+
+        android.widget.ImageView picture = new android.widget.ImageView(this);
+        picture.setAdjustViewBounds(true);
+        picture.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+        try {
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), o);
+            int sample = 1;
+            while (o.outWidth / (sample * 2) >= 640 && o.outHeight / (sample * 2) >= 360) sample *= 2;
+            o.inJustDecodeBounds = false;
+            o.inSampleSize = sample;
+            picture.setImageBitmap(android.graphics.BitmapFactory.decodeFile(file.getAbsolutePath(), o));
+        } catch (Exception | OutOfMemoryError ignored) { }
+        wrap.addView(picture, new android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (int) (330 * density)));
+
+        View set = getLayoutInflater().inflate(R.layout.item_input, wrap, false);
+        set.findViewById(R.id.icon).setVisibility(View.GONE);
+        set.findViewById(R.id.dot).setVisibility(View.GONE);
+        set.findViewById(R.id.status).setVisibility(View.GONE);
+        ((TextView) set.findViewById(R.id.title)).setText(R.string.velvet_wall_set);
+        set.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                saveWallpaperFrom(Uri.fromFile(file));
+                dialog.dismiss();
+                if (parent != null) parent.dismiss();
+            }
+        });
+        wrap.addView(set);
+
+        View del = getLayoutInflater().inflate(R.layout.item_input, wrap, false);
+        del.findViewById(R.id.icon).setVisibility(View.GONE);
+        del.findViewById(R.id.dot).setVisibility(View.GONE);
+        del.findViewById(R.id.status).setVisibility(View.GONE);
+        ((TextView) del.findViewById(R.id.title)).setText(R.string.velvet_wall_delete);
+        del.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                boolean ok = file.delete();
+                Toast.makeText(MainActivity.this, ok ? file.getName() + " deleted" : "Could not delete", Toast.LENGTH_SHORT).show();
+                dialog.dismiss();
+                if (parent != null) parent.dismiss();
+            }
+        });
+        wrap.addView(del);
+
+        dialog.setContentView(wrap);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dialog.getWindow().setLayout((int) (560 * density), ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+        dialog.show();
     }
 
     private void restoreVelvetWallpaper() {
