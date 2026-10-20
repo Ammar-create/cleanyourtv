@@ -51,6 +51,27 @@ public final class LauncherSettingsActivity extends Activity {
             row.removeAllViews();
             for (int i = columnChoices.length - 1; i >= 0; i--) row.addView(columnChoices[i]);
         }
+        final TextView rotationChoice = findViewById(R.id.rotationChoice);
+        final int[] mins = {0, 15, 60, 360};
+        final String[] labels = {"every visit", "15 min", "1 hour", "6 hours"};
+        final SharedPreferences wp = getSharedPreferences("velvet_wallpaper", MODE_PRIVATE);
+        final Runnable paint = new Runnable() {
+            @Override public void run() {
+                int cur = wp.getInt("interval_min", 0);
+                String label = labels[0];
+                for (int i = 0; i < mins.length; i++) if (mins[i] == cur) label = labels[i];
+                rotationChoice.setText(getString(R.string.velvet_rotation) + ": " + label);
+            }
+        };
+        paint.run();
+        rotationChoice.setOnClickListener(v -> {
+            int cur = wp.getInt("interval_min", 0);
+            int idx = 0;
+            for (int i = 0; i < mins.length; i++) if (mins[i] == cur) idx = i;
+            wp.edit().putInt("interval_min", mins[(idx + 1) % mins.length]).apply();
+            paint.run();
+        });
+
         animationsChoice = findViewById(R.id.animationsChoice);
         animationsChoice.setOnClickListener(v -> {
             animations = !animations;

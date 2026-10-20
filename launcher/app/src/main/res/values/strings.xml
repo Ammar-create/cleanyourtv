@@ -97,4 +97,5 @@
     <string name="velvet_wall_use">Use this folder</string>
     <string name="velvet_wall_set">Set as current wallpaper</string>
     <string name="velvet_wall_delete">Delete image</string>
+    <string name="velvet_rotation">Wallpaper rotation</string>
 </resources>
