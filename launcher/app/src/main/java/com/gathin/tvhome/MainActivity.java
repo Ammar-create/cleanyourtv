@@ -1815,8 +1815,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     private void pickWallpaperFolder() {
-        if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        if (!hasStorage()) {
             requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE,
                     android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
             return;
@@ -1829,10 +1828,16 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
         super.onRequestPermissionsResult(requestCode, permissions, results);
-        if (requestCode == REQ_WALLPAPER_PERM && results.length > 0
-                && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            pickWallpaperFolder();
-        }
+        if (requestCode == REQ_WALLPAPER_PERM && hasStorage()) openBrowser();
+    }
+
+
+    /** Android 9 exposes one "Storage" switch for both; check them separately or WRITE is never requested. */
+    private boolean hasStorage() {
+        return checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED
+                && checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                == android.content.pm.PackageManager.PERMISSION_GRANTED;
     }
 
     private void saveWallpaperFrom(Uri uri) {
@@ -1965,8 +1970,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** In-app folder browser: this TV ships no DocumentsUI, so a picker cannot be delegated. */
     private void showFolderPicker() {
-        if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
-                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        if (!hasStorage()) {
             requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE,
                     android.Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
             return;
@@ -2174,7 +2178,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         del.setOnClickListener(new View.OnClickListener() {
             @Override public void onClick(View v) {
                 boolean ok = file.delete();
-                Toast.makeText(MainActivity.this, ok ? file.getName() + " deleted" : "Could not delete", Toast.LENGTH_SHORT).show();
+                String msg = ok ? file.getName() + " deleted"
+                        : (!hasStorage() ? "Storage permission needed" : "Could not delete " + file.getName());
+                Toast.makeText(MainActivity.this, msg, Toast.LENGTH_LONG).show();
                 dialog.dismiss();
                 if (parent != null) parent.dismiss();
             }
