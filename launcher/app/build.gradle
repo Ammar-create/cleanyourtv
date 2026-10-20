@@ -6,6 +6,15 @@ android {
     namespace 'com.gathin.tvhome'
     compileSdk 34
 
+    signingConfigs {
+        tvhome {
+            storeFile file('../debug.jks')
+            storePassword 'tvhome123'
+            keyAlias 'tvhome'
+            keyPassword 'tvhome123'
+        }
+    }
+
     defaultConfig {
         applicationId 'com.gathin.tvhome'
         minSdk 26
@@ -21,7 +30,7 @@ android {
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             // Sideloaded over ADB, never published: sign with the debug key so it installs over a debug build.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.tvhome
         }
     }
 

@@ -167,6 +167,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Tile order when reorder mode started, to save only when something moved. */
     private List<String> orderAtStart;
     private View btnReorder;
+    private View btnEdit;
+    private android.widget.ImageView wallpaperView;
+    private static final int REQ_WALLPAPER_FILE = 4101;
+    private static final int REQ_WALLPAPER_TREE = 4102;
     /** dock_apps as loaded (config.xml or a theme): a saved Order only applies while these are unchanged. */
     private List<String> dockApps;
     /** fill_dock false: the dock can have empty slots, which reorder mode leaves out and restores afterwards. */
@@ -431,6 +435,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnReorder = findViewById(R.id.btnReorder);
         btnReorder.setOnClickListener(v -> toggleReorder());
         btnReorder.setVisibility(cfg.reorderButton ? View.VISIBLE : View.GONE);
+        btnEdit = findViewById(R.id.btnEdit);
+        btnEdit.setOnClickListener(v -> showEditMenu());
         btnSettings.setOnLongClickListener(v -> {
             showSettingsMenu();
             return true;
@@ -457,8 +463,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnWifi.setOnKeyListener(pillKeys);
         btnSettings.setOnKeyListener(pillKeys);
         btnReorder.setOnKeyListener(pillKeys);
+        btnEdit.setOnKeyListener(pillKeys);
         if (advancedEffects) {
-            for (View button : new View[]{btnInputs, btnWifi, btnReorder, btnSettings}) {
+            for (View button : new View[]{btnInputs, btnWifi, btnReorder, btnEdit, btnSettings}) {
                 button.setOnFocusChangeListener((view, focused) -> view.animate()
                         .scaleX(focused ? 1.04f : 1f).scaleY(focused ? 1.04f : 1f)
                         .setDuration(160).start());
@@ -525,7 +532,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             opts.inPreferredConfig = android.graphics.Bitmap.Config.RGB_565;   // no alpha needed, half the memory
             android.graphics.Bitmap bmp = android.graphics.BitmapFactory.decodeFile(file.getPath(), opts);
             if (bmp == null) return;
+            if (wallpaperView != null) root.removeView(wallpaperView);
             android.widget.ImageView wall = new android.widget.ImageView(this);
+            wallpaperView = wall;
             wall.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
             wall.setImageBitmap(bmp);
             root.addView(wall, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -562,6 +571,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     protected void onResume() {
+        if ("folder".equals(wpPrefs().getString("mode", ""))) nextFolderWallpaper(false);
         super.onResume();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -593,6 +603,17 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQ_WALLPAPER_FILE && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            saveWallpaperFrom(data.getData());
+            return;
+        }
+        if (requestCode == REQ_WALLPAPER_TREE && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            Uri tree = data.getData();
+            try { getContentResolver().takePersistableUriPermission(tree, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) { }
+            wpPrefs().edit().putString("mode", "folder").putString("dir", tree.toString()).putInt("index", 0).apply();
+            nextFolderWallpaper(true);
+            return;
+        }
         if (requestCode == LAUNCHER_SETTINGS_REQUEST && resultCode == RESULT_OK) recreate();
     }
 
@@ -1700,6 +1721,128 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     }
 
     /** Dropdown menu under the Inputs pill: HDMI ports (with connection state), AV and Live TV. */
+
+    // ---- Velvet: pencil menu, wallpaper, hidden apps ------------------------------------------
+
+    private android.content.SharedPreferences wpPrefs() {
+        return getSharedPreferences("velvet_wallpaper", MODE_PRIVATE);
+    }
+
+    /** The pencil pill: wallpaper, layout editing and the hidden-apps shelf. */
+    private void showEditMenu() {
+        View anchor = findViewById(R.id.btnEdit);
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (210 * density));
+        addSettingsMenuRow(rows, popup, R.string.velvet_wallpaper, this::showWallpaperMenu);
+        addSettingsMenuRow(rows, popup, R.string.velvet_layout, this::toggleReorder);
+        addSettingsMenuRow(rows, popup, R.string.velvet_hidden_apps, this::onLibraryRequested);
+        addSettingsMenuRow(rows, popup, R.string.velvet_restore, this::restoreAllHidden);
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max((int) (210 * density), panel.getMeasuredWidth()));
+        dropIn(popup, panel, anchor, Gravity.END);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    private void showWallpaperMenu() {
+        View anchor = findViewById(R.id.btnEdit);
+        View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);
+        LinearLayout rows = panel.findViewById(R.id.rows);
+        PopupWindow popup = glassPopup(panel, (int) (240 * density));
+        addSettingsMenuRow(rows, popup, R.string.velvet_wall_default, this::useSystemWallpaper);
+        addSettingsMenuRow(rows, popup, R.string.velvet_wall_pick, this::pickWallpaperImage);
+        addSettingsMenuRow(rows, popup, R.string.velvet_wall_folder, this::pickWallpaperFolder);
+        panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        popup.setWidth(Math.max((int) (240 * density), panel.getMeasuredWidth()));
+        dropIn(popup, panel, anchor, Gravity.END);
+        rows.getChildAt(0).requestFocus();
+    }
+
+    /** Pulls every app the user hid back onto Home in one go. */
+    private void restoreAllHidden() {
+        for (String pkg : LibraryApps.loadRemoved(this)) LibraryApps.save(this, pkg, true);
+        reloadApps(false);
+    }
+
+    private void useSystemWallpaper() {
+        wpPrefs().edit().putString("mode", "none").remove("dir").apply();
+        if (wallpaperView != null) {
+            root.removeView(wallpaperView);
+            wallpaperView = null;
+        }
+    }
+
+    private void pickWallpaperImage() {
+        Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+        i.setType("image/*");
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        try {
+            startActivityForResult(Intent.createChooser(i, getString(R.string.velvet_wall_pick)), REQ_WALLPAPER_FILE);
+        } catch (ActivityNotFoundException ignored) { }
+    }
+
+    private void pickWallpaperFolder() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try {
+            startActivityForResult(i, REQ_WALLPAPER_TREE);
+        } catch (ActivityNotFoundException ignored) { }
+    }
+
+    private void saveWallpaperFrom(Uri uri) {
+        try {
+            java.io.File out = new java.io.File(getFilesDir(), "user_wallpaper.jpg");
+            java.io.InputStream in = getContentResolver().openInputStream(uri);
+            if (in == null) return;
+            java.io.FileOutputStream fo = new java.io.FileOutputStream(out);
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) fo.write(buf, 0, n);
+            in.close();
+            fo.close();
+            wpPrefs().edit().putString("mode", "file").apply();
+            showWallpaper(out);
+        } catch (Exception ignored) { }
+    }
+
+    /** Shows the next image of the chosen folder; every return to Home advances it. */
+    private void nextFolderWallpaper(boolean restart) {
+        android.content.SharedPreferences sp = wpPrefs();
+        if (!"folder".equals(sp.getString("mode", ""))) return;
+        String saved = sp.getString("dir", null);
+        if (saved == null) return;
+        try {
+            Uri tree = Uri.parse(saved);
+            String docId = android.provider.DocumentsContract.getTreeDocumentId(tree);
+            Uri children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(tree, docId);
+            java.util.List<String> ids = new java.util.ArrayList<>();
+            android.database.Cursor c = getContentResolver().query(children, new String[]{
+                    android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                    android.provider.DocumentsContract.Document.COLUMN_MIME_TYPE}, null, null, null);
+            if (c != null) {
+                while (c.moveToNext()) {
+                    String mime = c.getString(1);
+                    if (mime != null && mime.startsWith("image/")) ids.add(c.getString(0));
+                }
+                c.close();
+            }
+            if (ids.isEmpty()) return;
+            int index = restart ? 0 : sp.getInt("index", 0) % ids.size();
+            sp.edit().putInt("index", (index + 1) % ids.size()).apply();
+            Uri doc = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, ids.get(index));
+            java.io.File out = new java.io.File(getCacheDir(), "rotating_wallpaper.jpg");
+            java.io.InputStream in = getContentResolver().openInputStream(doc);
+            if (in == null) return;
+            java.io.FileOutputStream fo = new java.io.FileOutputStream(out);
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) fo.write(buf, 0, n);
+            in.close();
+            fo.close();
+            showWallpaper(out);
+        } catch (Exception ignored) { }
+    }
+
     private void showInputs() {
         View anchor = findViewById(R.id.btnInputs);
         View panel = getLayoutInflater().inflate(R.layout.popup_inputs, root, false);

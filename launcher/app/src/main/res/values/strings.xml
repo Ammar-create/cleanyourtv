@@ -86,4 +86,12 @@
         <item quantity="one">%1$d app</item>
         <item quantity="other">%1$d apps</item>
     </plurals>
+    <string name="velvet_edit">Edit</string>
+    <string name="velvet_wallpaper">Wallpaper</string>
+    <string name="velvet_wall_default">System wallpaper</string>
+    <string name="velvet_wall_pick">Choose an image</string>
+    <string name="velvet_wall_folder">Rotate from a folder</string>
+    <string name="velvet_layout">Configure layout</string>
+    <string name="velvet_hidden_apps">Hidden apps</string>
+    <string name="velvet_restore">Restore hidden apps</string>
 </resources>
