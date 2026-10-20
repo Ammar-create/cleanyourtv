@@ -103,6 +103,9 @@ public final class LauncherSettingsActivity extends Activity {
             }
         });
         followThemeChoice = findViewById(R.id.followThemeChoice);
+        followThemeChoice.setText("Follow theme (reset on-TV choices)");
+        ((TextView) findViewById(R.id.defaultHomeChoice)).setText("Default home screen");
+        ((TextView) findViewById(R.id.tvSettingsChoice)).setText("TV settings");
         followThemeChoice.setOnClickListener(v -> {
             if (!hasOnTvChoices()) return;
             choices.edit().remove("columns").remove("animations").remove("advanced_effects").commit();
