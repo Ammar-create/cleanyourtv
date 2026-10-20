@@ -181,7 +181,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         }
     };
     private static final int[] INTERVALS = {0, 15, 60, 360};
-    private static final String[] INTERVAL_LABELS = {"every visit", "15 min", "1 hour", "6 hours"};
+    private static final String[] INTERVAL_LABELS = {"Every visit", "15 min", "1 hour", "6 hours"};
     /** dock_apps as loaded (config.xml or a theme): a saved Order only applies while these are unchanged. */
     private List<String> dockApps;
     /** fill_dock false: the dock can have empty slots, which reorder mode leaves out and restores afterwards. */

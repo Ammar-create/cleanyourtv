@@ -61,7 +61,7 @@ public final class LauncherSettingsActivity extends Activity {
 
         final TextView rotationChoice = findViewById(R.id.rotationChoice);
         final int[] mins = {0, 15, 60, 360};
-        final String[] labels = {"every visit", "15 min", "1 hour", "6 hours"};
+        final String[] labels = {"Every visit", "15 min", "1 hour", "6 hours"};
         final SharedPreferences wp = getSharedPreferences("velvet_wallpaper", MODE_PRIVATE);
         final Runnable paint = new Runnable() {
             @Override public void run() {
