@@ -98,4 +98,11 @@
     <string name="velvet_wall_set">Set as current wallpaper</string>
     <string name="velvet_wall_delete">Delete image</string>
     <string name="velvet_rotation">Wallpaper rotation</string>
+    <string name="velvet_settings_sub">Home screen appearance and behaviour</string>
+    <string name="velvet_section_home">HOME SCREEN</string>
+    <string name="velvet_section_motion">MOTION</string>
+    <string name="velvet_section_wall">WALLPAPER</string>
+    <string name="velvet_section_system">SYSTEM</string>
+    <string name="velvet_columns">Columns</string>
+    <string name="velvet_advanced">Advanced effects</string>
 </resources>
