@@ -272,6 +272,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         root = findViewById(R.id.root);
         root.setBackgroundColor(cfg.backgroundColor);
         if (cfg.wallpaper != null) showWallpaper(cfg.wallpaper);
+        restoreVelvetWallpaper();
         sky = findViewById(R.id.sky);
         sky.setIntensity(cfg.skyIntensity);
         glass = findViewById(R.id.glass);
@@ -457,6 +458,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         boolean rtlMenuBar = getResources().getBoolean(R.bool.rtl_menu_bar);
         View.OnKeyListener pillKeys = (v, keyCode, event) -> {
             if (event.getAction() != KeyEvent.ACTION_DOWN) return false;
+            if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+                bounce(v);
+                return false;   // let the normal click run
+            }
             if (keyCode == KeyEvent.KEYCODE_DPAD_UP) return true;
             if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
                 // Back to the dock tile Up came from, not wherever the focus finder lands.
@@ -464,8 +469,9 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 return true;
             }
             int firstButton = btnInputs.getVisibility() == View.VISIBLE ? R.id.btnInputs : R.id.btnWifi;
-            int leftButton = rtlMenuBar ? R.id.btnSettings : firstButton;
-            int rightButton = rtlMenuBar ? firstButton : R.id.btnSettings;
+            int lastButton = R.id.btnEdit;   // Velvet: the pencil sits at the right end
+            int leftButton = rtlMenuBar ? lastButton : firstButton;
+            int rightButton = rtlMenuBar ? firstButton : lastButton;
             if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) return v.getId() == leftButton;
             return keyCode == KeyEvent.KEYCODE_DPAD_RIGHT && v.getId() == rightButton;
         };
@@ -1035,7 +1041,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     private void showHero(int position, float dockTopInRoot) {
         String label = adapter.labelAt(position);
-        int color = adapter.ambientColorAt(position);
+        int color = velvetAmbient(position);
         float y = dockTopInRoot - 14 * density - 26 * density - heroName.getHeight();
         boolean changed = !label.contentEquals(heroName.getText());
 
@@ -1150,7 +1156,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
      * show (every tile has its name underneath).
      */
     private void showGlowOnly(int position) {
-        int color = adapter.ambientColorAt(position);
+        int color = velvetAmbient(position);
         stopAmbientAnimation();
         heroName.animate().cancel();
         ambient.animate().cancel();
@@ -1902,6 +1908,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         final android.widget.LinearLayout bar = findViewById(R.id.topButtons);
         final float[] before = new float[bar.getChildCount()];
         for (int i = 0; i < before.length; i++) before[i] = bar.getChildAt(i).getX();
+        dustBurst(btnReorder);
         btnReorder.animate().alpha(0f).scaleX(0.72f).scaleY(0.72f).setDuration(140)
                 .withEndAction(new Runnable() {
                     @Override public void run() {
@@ -2042,6 +2049,71 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
             }
         });
         return row;
+    }
+
+
+    /** True once the user has set a wallpaper of their own. */
+    private boolean customWallpaper() {
+        return !"none".equals(wpPrefs().getString("mode", "none"));
+    }
+
+    /** The app-sampled glow stays for the stock background; a custom photo gets a clean one. */
+    private int velvetAmbient(int position) {
+        return customWallpaper() ? 0x00FFFFFF : adapter.ambientColorAt(position);
+    }
+
+    /** Re-applies the chosen wallpaper after a restart or an APK update. */
+    private void restoreVelvetWallpaper() {
+        String mode = wpPrefs().getString("mode", "none");
+        if ("file".equals(mode)) {
+            java.io.File f = new java.io.File(getFilesDir(), "user_wallpaper.jpg");
+            if (f.isFile()) showWallpaper(f);
+        } else if ("folder".equals(mode)) {
+            nextFolderWallpaper(false);
+            scheduleRotation();
+        }
+    }
+
+    /** Cartoon squash-and-stretch on press: it swells, then settles back. */
+    private void bounce(View v) {
+        v.animate().cancel();
+        v.animate().scaleX(1.09f).scaleY(1.09f).setDuration(90)
+                .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                .withEndAction(new Runnable() {
+                    @Override public void run() {
+                        v.animate().scaleX(1f).scaleY(1f).setDuration(210)
+                                .setInterpolator(new android.view.animation.OvershootInterpolator(2.4f)).start();
+                    }
+                }).start();
+    }
+
+    /** The pill turning to dust: a burst of fragments that fly out and fade. */
+    private void dustBurst(final View v) {
+        final android.view.ViewGroup host = root;
+        final Rect r = new Rect(0, 0, v.getWidth(), v.getHeight());
+        root.offsetDescendantRectToMyCoords(v, r);
+        final java.util.Random rnd = new java.util.Random();
+        for (int i = 0; i < 30; i++) {
+            final View dot = new View(this);
+            int size = (int) (3 * density + rnd.nextInt((int) (4 * density)));
+            android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
+            g.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+            g.setColor(0xFFEDEDED);
+            dot.setBackground(g);
+            android.widget.FrameLayout.LayoutParams lp = new android.widget.FrameLayout.LayoutParams(size, size);
+            lp.leftMargin = r.left + rnd.nextInt(Math.max(1, r.width()));
+            lp.topMargin = r.top + rnd.nextInt(Math.max(1, r.height()));
+            host.addView(dot, lp);
+            float dx = (rnd.nextFloat() - 0.5f) * 190 * density;
+            float dy = (rnd.nextFloat() - 0.35f) * 150 * density;
+            dot.animate().translationX(dx).translationY(dy)
+                    .alpha(0f).scaleX(0.2f).scaleY(0.2f)
+                    .setDuration(360 + rnd.nextInt(240))
+                    .setInterpolator(new android.view.animation.AccelerateInterpolator(1.4f))
+                    .withEndAction(new Runnable() {
+                        @Override public void run() { host.removeView(dot); }
+                    }).start();
+        }
     }
 
     private void showInputs() {

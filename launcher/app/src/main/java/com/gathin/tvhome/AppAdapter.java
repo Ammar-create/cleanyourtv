@@ -514,8 +514,10 @@ public class AppAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
 
     /** A vivid colour sampled from the app's banner (or icon), cached per entry; a card's accent when it set one. */
     int ambientColorAt(int position) {
-        // Velvet: a neutral glow. The per-app colour sampled from each banner muddied custom wallpapers.
-        return 0xFFFFFFFF;
+        if (position < 0 || position >= items.size()) return 0xFF444444;
+        Entry e = items.get(position);
+        if (e.ambient == 0) e.ambient = vividColor(e.banner != null ? e.banner : e.icon);
+        return e.ambient;
     }
 
     private static int vividColor(Drawable live) {
