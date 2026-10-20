@@ -2082,6 +2082,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
                 new android.widget.LinearLayout.LayoutParams((int) (34 * density), (int) (34 * density));
         icon.setLayoutParams(lp);
         icon.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        icon.setImageTintList(null);   // item_input tints icons white; a photo must keep its colours
         try {
             android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
             o.inJustDecodeBounds = true;
