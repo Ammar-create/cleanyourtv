@@ -108,4 +108,9 @@
     <string name="velvet_columns_value">%1$d columns</string>
     <string name="velvet_settings_kicker">CLEAN YOUR TV</string>
     <string name="velvet_advanced">Advanced effects</string>
+    <string name="default_home_short">Default home</string>
+    <string name="tv_settings_short">TV settings</string>
+    <string name="follow_theme_on">Follow theme: On</string>
+    <string name="follow_theme_off">Follow theme: Off, press to reset</string>
+    <string name="follow_theme_none">Already following the theme</string>
 </resources>

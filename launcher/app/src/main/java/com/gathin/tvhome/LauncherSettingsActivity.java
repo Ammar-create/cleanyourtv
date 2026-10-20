@@ -1,14 +1,18 @@
 package com.gathin.tvhome;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -94,20 +98,16 @@ public final class LauncherSettingsActivity extends Activity {
             if (advancedEffects) {
                 setAdvanced(false);
             } else {
-                new AlertDialog.Builder(this)
-                        .setTitle(R.string.advanced_effects)
-                        .setMessage(R.string.advanced_effects_warning)
-                        .setPositiveButton(R.string.enable, (dialog, which) -> setAdvanced(true))
-                        .setNegativeButton(android.R.string.cancel, null)
-                        .show();
+                showAdvancedEffectsDialog();
             }
         });
         followThemeChoice = findViewById(R.id.followThemeChoice);
-        followThemeChoice.setText("Follow theme (reset on-TV choices)");
-        ((TextView) findViewById(R.id.defaultHomeChoice)).setText("Default home screen");
-        ((TextView) findViewById(R.id.tvSettingsChoice)).setText("TV settings");
         followThemeChoice.setOnClickListener(v -> {
-            if (!hasOnTvChoices()) return;
+            if (!hasOnTvChoices()) {
+                // A silent row reads as broken; say why nothing happened instead.
+                Toast.makeText(this, R.string.follow_theme_none, Toast.LENGTH_SHORT).show();
+                return;
+            }
             choices.edit().remove("columns").remove("animations").remove("advanced_effects").commit();
             Config current = Config.load(this);
             columns = Math.max(4, Math.min(7, current.columns));
@@ -163,7 +163,36 @@ public final class LauncherSettingsActivity extends Activity {
                 getString(advancedEffects ? R.string.on : R.string.off)));
         advancedChoice.setEnabled(animations);
         advancedChoice.setAlpha(animations ? 1f : 0.5f);
-        followThemeChoice.setSelected(!hasOnTvChoices());
+        // The system rows carry their own text: an unset row renders as an empty glass bar.
+        boolean overrides = hasOnTvChoices();
+        followThemeChoice.setText(overrides ? R.string.follow_theme_off : R.string.follow_theme_on);
+        followThemeChoice.setSelected(!overrides);
+    }
+
+    /**
+     * The advanced-effects confirmation. This is our own dialog, not a system permission sheet, so
+     * it wears our glass: a floating translucent window (Theme.TvHome.Dialog) holding
+     * dialog_advanced_effects, which paints @drawable/glass_panel with the two chip actions.
+     */
+    private void showAdvancedEffectsDialog() {
+        final Dialog dialog = new Dialog(this, R.style.Theme_TvHome_Dialog);
+        dialog.setContentView(R.layout.dialog_advanced_effects);
+        dialog.setCanceledOnTouchOutside(true);
+        Window window = dialog.getWindow();
+        if (window != null) {
+            // The panel inside the layout paints the glass; the window itself must stay clear.
+            window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            window.setLayout(WindowManager.LayoutParams.WRAP_CONTENT,
+                    WindowManager.LayoutParams.WRAP_CONTENT);
+        }
+        View enable = dialog.findViewById(R.id.advancedEnable);
+        dialog.findViewById(R.id.advancedCancel).setOnClickListener(v -> dialog.dismiss());
+        enable.setOnClickListener(v -> {
+            setAdvanced(true);
+            dialog.dismiss();
+        });
+        dialog.setOnShowListener(shown -> enable.post(enable::requestFocus));
+        dialog.show();
     }
 
     private boolean hasOnTvChoices() {

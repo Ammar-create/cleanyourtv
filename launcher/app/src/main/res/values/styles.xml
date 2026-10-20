@@ -74,6 +74,10 @@
         <item name="android:fontFamily">@font/outfit_medium</item>
     </style>
 
+    <!-- All four cards share this and nothing else, so their corners are identical by construction:
+         one 20dp radius on @drawable/glass_card, clipped to that outline, the same vertical padding
+         on every card, and rows whose focus pill is inset far enough that it can never poke out of
+         the rounded corner. -->
     <style name="SettingsCard">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
@@ -81,9 +85,35 @@
         <item name="android:layout_marginEnd">12dp</item>
         <item name="android:background">@drawable/glass_card</item>
         <item name="android:elevation">4dp</item>
+        <item name="android:paddingTop">5dp</item>
+        <item name="android:paddingBottom">5dp</item>
         <item name="android:clipChildren">true</item>
         <item name="android:clipToOutline">true</item>
+        <item name="android:outlineProvider">background</item>
         <item name="android:orientation">vertical</item>
+    </style>
+
+    <!-- A hero shortcut: the circular glass button with its caption underneath. -->
+    <style name="SettingsShortcut">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:gravity">center_horizontal</item>
+    </style>
+
+    <!-- Caption under a circular shortcut. Ten sp, tracked out, muted: it labels without shouting. -->
+    <style name="SettingsIconCaption">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">7dp</item>
+        <item name="android:maxWidth">82dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:singleLine">true</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:textColor">#99FFFFFF</item>
+        <item name="android:textSize">10sp</item>
+        <item name="android:letterSpacing">0.06</item>
+        <item name="android:fontFamily">@font/outfit_medium</item>
     </style>
 
     <style name="SettingsDivider">
@@ -159,5 +189,32 @@
         <item name="android:textColor">#70FFFFFF</item>
         <item name="android:textSize">12sp</item>
         <item name="android:fontFamily">@font/outfit</item>
+    </style>
+
+    <!-- Advanced-effects dialog. Our own window, so it gets our own glass: a floating, translucent
+         window with a transparent background; the panel inside is @drawable/glass_panel. -->
+    <style name="Theme.TvHome.Dialog" parent="android:Theme.Material.Dialog.NoActionBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.62</item>
+    </style>
+
+    <!-- Dialog action: the same chip the column picker used to use, so focus reads the same. -->
+    <style name="SettingsDialogButton">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:layout_marginStart">10dp</item>
+        <item name="android:paddingStart">26dp</item>
+        <item name="android:paddingEnd">26dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:background">@drawable/settings_choice_bg</item>
+        <item name="android:textColor">@color/settings_row_text</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:fontFamily">@font/outfit_medium</item>
+        <item name="android:focusable">true</item>
+        <item name="android:clickable">true</item>
     </style>
 </resources>

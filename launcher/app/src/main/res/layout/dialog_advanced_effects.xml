@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Advanced effects confirmation. Our own dialog view, so the glass is ours: the panel is
+     @drawable/glass_panel, the title and body are plain white on it, and the two actions are chips
+     that lift to solid white with dark ink when the remote lands on them, exactly like a settings
+     row. Focus starts on Enable. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="440dp"
+    android:layout_height="wrap_content"
+    android:background="@drawable/glass_panel"
+    android:orientation="vertical"
+    android:paddingStart="28dp"
+    android:paddingTop="24dp"
+    android:paddingEnd="28dp"
+    android:paddingBottom="20dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/outfit_medium"
+        android:text="@string/advanced_effects"
+        android:textColor="#FFFFFFFF"
+        android:textSize="21sp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:fontFamily="@font/outfit"
+        android:lineSpacingExtra="3dp"
+        android:text="@string/advanced_effects_warning"
+        android:textColor="#B8FFFFFF"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="22dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/advancedCancel"
+            style="@style/SettingsDialogButton"
+            android:text="@android:string/cancel" />
+
+        <TextView
+            android:id="@+id/advancedEnable"
+            style="@style/SettingsDialogButton"
+            android:text="@string/enable" />
+    </LinearLayout>
+</LinearLayout>

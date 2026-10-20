@@ -22,14 +22,20 @@ import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
 
 /**
- * Four-stop column picker for the remote: a frosted track, a filled run up to the thumb, and a glass
- * thumb that springs between stops. No blur anywhere; the material is a stack of gradients, a top
- * specular band and a 1dp rim, the same recipe as {@link GlassView} and the popup panels.
+ * Four-stop column picker for the remote: a thin frosted track, a filled run up to the thumb, and a
+ * soft, low, wide glass pill that springs between stops. No blur anywhere; the material is a stack
+ * of gradients, a sheen band and a 1dp rim, the same recipe as {@link GlassView} and the popup
+ * panels.
+ *
+ * <p>The thumb is sized like a media slider's scrubber rather than a fat knob: 86x24dp at a 4dp
+ * track, fully rounded ends, a gradient body over a soft contact shadow. The track is inset by half
+ * a thumb so the pill never overhangs the view, and the outer stop numbers are drawn just outside
+ * the track's ends, below the travel lane, so the thumb can never cover or clip them.
  *
  * <p>D-pad left/right moves exactly one stop. The thumb rides a {@link SpringAnimation} (stiffness
- * 380, damping 0.82) and stretches along its travel axis while it has speed, relaxing as it settles.
- * Focus lifts the thumb from dim glass to near-white and adds a ring, so it is obvious from across
- * a living room which control the remote is on.
+ * 380, damping 0.82) and stretches a little along its travel axis while it has speed, relaxing as
+ * it settles. Focus lifts the thumb from dim glass to near-white, brightens its rim and adds a soft
+ * halo, so it is obvious from across a living room which control the remote is on.
  */
 public final class GlassSlider extends View {
 
@@ -41,10 +47,20 @@ public final class GlassSlider extends View {
     private static final int STOPS = 4;
     private static final String[] STOP_LABELS = {"4", "5", "6", "7"};
 
-    /** Horizontal stretch at full travel speed, as a fraction of the thumb radius. */
-    private static final float STRETCH_MAX = 0.16f;
+    /** Thin frosted line, as in the mockup. */
+    private static final float TRACK_HEIGHT_DP = 4f;
+    /** The scrubber pill: wide, low, fully rounded. */
+    private static final float THUMB_WIDTH_DP = 86f;
+    private static final float THUMB_HEIGHT_DP = 24f;
+    /** Gap between a thumb parked at a stop and the view's own edge (room for the halo). */
+    private static final float THUMB_TRAVEL_GAP_DP = 6f;
+    /** How far outside the track's ends the first and last stop numbers sit. */
+    private static final float LABEL_GAP_DP = 10f;
+
+    /** Horizontal stretch at full travel speed, as a fraction of the thumb width. */
+    private static final float STRETCH_MAX = 0.10f;
     /** Velocity (dp/s) that counts as "full speed" for the stretch. */
-    private static final float STRETCH_VELOCITY = 1800f;
+    private static final float STRETCH_VELOCITY = 1600f;
 
     private final FloatPropertyCompat<GlassSlider> thumbProperty =
             new FloatPropertyCompat<GlassSlider>("glassSliderThumbX") {
@@ -62,25 +78,29 @@ public final class GlassSlider extends View {
 
     private final float density;
     private final float trackHeight;
-    private final float thumbRadius;
+    private final float thumbWidth;
+    private final float thumbHeight;
     private final float trackInset;
+    private final float labelGap;
     private final float labelSize;
 
     private final Paint trackPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint trackRim = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint fillPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint trackRim = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint thumbPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint thumbHotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint hotPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint sheenPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint thumbRim = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint glossPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint shadowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint labelActivePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private final RectF trackRect = new RectF();
-    private final RectF thumbRect = new RectF();
-    private final RectF glossRect = new RectF();
+    /** Thumb body in its own local space: centred on (0,0), so the sheen and rim share the space. */
+    private final RectF thumbShape = new RectF();
+    private final RectF sheenShape = new RectF();
+    private final RectF ringShape = new RectF();
 
     private final SpringAnimation spring;
     private ValueAnimator focusAnimator;
@@ -88,7 +108,7 @@ public final class GlassSlider extends View {
 
     private int value;
     private float thumbX;
-    /** 0 at rest, 1 at full travel speed; drives the horizontal squash of the thumb. */
+    /** 0 at rest, 1 at full travel speed; drives the horizontal stretch of the pill. */
     private float stretch;
     /** 0 unfocused, 1 focused, animated so the material lifts instead of snapping. */
     private float focus;
@@ -97,9 +117,12 @@ public final class GlassSlider extends View {
     public GlassSlider(Context context, AttributeSet attrs) {
         super(context, attrs);
         density = getResources().getDisplayMetrics().density;
-        trackHeight = 8f * density;
-        thumbRadius = 11f * density;
-        trackInset = thumbRadius + 6f * density;
+        trackHeight = TRACK_HEIGHT_DP * density;
+        thumbWidth = THUMB_WIDTH_DP * density;
+        thumbHeight = THUMB_HEIGHT_DP * density;
+        // Half a thumb on each side, plus a hair of breathing room for the focus halo.
+        trackInset = thumbWidth / 2f + THUMB_TRAVEL_GAP_DP * density;
+        labelGap = LABEL_GAP_DP * density;
         labelSize = 13f * density;
 
         trackRim.setStyle(Paint.Style.STROKE);
@@ -109,9 +132,7 @@ public final class GlassSlider extends View {
         thumbRim.setStyle(Paint.Style.STROKE);
         thumbRim.setStrokeWidth(1f * density);
 
-        glossPaint.setColor(0x33FFFFFF);
-
-        glowPaint.setStyle(Paint.Style.STROKE);
+        ringPaint.setStyle(Paint.Style.STROKE);
 
         Typeface face = null;
         try {
@@ -179,9 +200,12 @@ public final class GlassSlider extends View {
     @Override
     protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
-        float centerY = h * 0.44f;
-        trackRect.set(trackInset, centerY - trackHeight / 2f, w - trackInset, centerY + trackHeight / 2f);
-        buildShaders(centerY);
+        // The track owns the upper lane; the stop numbers get a lane of their own underneath, so a
+        // pill parked on a stop can never sit on top of a number.
+        float centerY = h * 0.43f;
+        trackRect.set(trackInset, centerY - trackHeight / 2f,
+                w - trackInset, centerY + trackHeight / 2f);
+        buildShaders();
         if (!laidOut) {
             laidOut = true;
             thumbX = xForStop(value);
@@ -191,22 +215,27 @@ public final class GlassSlider extends View {
         }
     }
 
-    private void buildShaders(float centerY) {
+    private void buildShaders() {
         trackPaint.setShader(new LinearGradient(0f, trackRect.top, 0f, trackRect.bottom,
-                0x38FFFFFF, 0x14FFFFFF, Shader.TileMode.CLAMP));
+                0x2EFFFFFF, 0x0FFFFFFF, Shader.TileMode.CLAMP));
         fillPaint.setShader(new LinearGradient(0f, trackRect.top, 0f, trackRect.bottom,
-                0x8CFFFFFF, 0x3DFFFFFF, Shader.TileMode.CLAMP));
+                0x8CFFFFFF, 0x3AFFFFFF, Shader.TileMode.CLAMP));
 
-        float top = centerY - thumbRadius;
-        float bottom = centerY + thumbRadius;
-        // Resting thumb: quiet, smoked glass. Focused thumb: the same surface lifted to near-white.
+        // Thumb shaders live in the pill's own space: centred on (0,0), drawn after translating.
+        float top = -thumbHeight / 2f;
+        float bottom = thumbHeight / 2f;
+        // Resting thumb: quiet, smoked glass. The alpha is baked into the gradient stops, never
+        // applied with setAlpha(), which would replace a solid colour's alpha instead of scaling it.
         thumbPaint.setShader(new LinearGradient(0f, top, 0f, bottom,
-                0x59FFFFFF, 0x21FFFFFF, Shader.TileMode.CLAMP));
-        thumbHotPaint.setShader(new LinearGradient(0f, top, 0f, bottom,
-                new int[]{0xFFFFFFFF, 0xF7FAFCFE, 0xFFD2DAE3},
+                new int[]{0x3CFFFFFF, 0x2CFFFFFF, 0x1CFFFFFF},
                 new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
 
-        shadowPaint.setShader(new RadialGradient(0f, 0f, thumbRadius * 2.6f,
+        float sheenTop = top + 1.5f * density;
+        float sheenBottom = sheenTop + thumbHeight * 0.46f;
+        sheenPaint.setShader(new LinearGradient(0f, sheenTop, 0f, sheenBottom,
+                0x22FFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
+
+        shadowPaint.setShader(new RadialGradient(0f, 0f, thumbHeight * 0.95f,
                 0x4A000000, 0x00000000, Shader.TileMode.CLAMP));
     }
 
@@ -223,69 +252,94 @@ public final class GlassSlider extends View {
         final float centerY = trackRect.centerY();
         final float cap = trackHeight / 2f;
 
-        // Track: frosted bar with a hairline rim, plus a brighter rim once the row owns focus.
+        // Track: a thin frosted line with a hairline rim, plus a brighter rim once the row owns focus.
         canvas.drawRoundRect(trackRect, cap, cap, trackPaint);
         if (focus > 0.01f) {
-            glowPaint.setStrokeWidth(1f * density);
-            glowPaint.setColor(withAlpha(0x30FFFFFF, focus));
-            canvas.drawRoundRect(trackRect, cap, cap, glowPaint);
+            ringPaint.setStrokeWidth(1f * density);
+            ringPaint.setColor(withAlpha(0x30FFFFFF, focus));
+            canvas.drawRoundRect(trackRect, cap, cap, ringPaint);
         }
         canvas.drawRoundRect(trackRect, cap, cap, trackRim);
 
-        // Filled run up to the thumb, kept at least one thumb wide so the left cap stays round.
+        // Filled run up to the thumb, kept at least one track-height wide so the left cap stays round.
         if (thumbX > trackRect.left + 0.5f) {
-            float right = Math.max(thumbX, trackRect.left + trackHeight);
+            float right = Math.min(Math.max(thumbX, trackRect.left + trackHeight), trackRect.right);
             canvas.drawRoundRect(trackRect.left, trackRect.top, right, trackRect.bottom,
                     cap, cap, fillPaint);
         }
 
-        // Thumb: a soft contact shadow, the glass body, a specular gloss and the rim.
+        final float halfW = thumbWidth / 2f;
+        final float halfH = thumbHeight / 2f;
+        final float stretchX = 1f + STRETCH_MAX * stretch;
+        final float stretchY = 1f - 0.035f * stretch;
+
+        // Contact shadow: a soft ellipse sitting just under the pill, squashed on Y.
         canvas.save();
-        canvas.translate(thumbX, centerY + 1.5f * density);
-        canvas.drawCircle(0f, 0f, thumbRadius * 2.6f, shadowPaint);
+        canvas.translate(thumbX, centerY + 6f * density);
+        canvas.scale(1.9f, 0.75f);
+        canvas.drawCircle(0f, 0f, thumbHeight * 0.95f, shadowPaint);
         canvas.restore();
 
+        // The pill itself, in its own space so the stretch never touches the shadow or the halo.
         canvas.save();
         canvas.translate(thumbX, centerY);
-        canvas.scale(1f + STRETCH_MAX * stretch, 1f - 0.04f * stretch);
-        canvas.translate(-thumbX, -centerY);
+        canvas.scale(stretchX, stretchY);
 
-        thumbRect.set(thumbX - thumbRadius, centerY - thumbRadius,
-                thumbX + thumbRadius, centerY + thumbRadius);
-        canvas.drawOval(thumbRect, thumbPaint);
+        thumbShape.set(-halfW, -halfH, halfW, halfH);
+        canvas.drawRoundRect(thumbShape, halfH, halfH, thumbPaint);
+
+        // Focus lift: solid white with a computed alpha, so it blends over the resting gradient
+        // instead of punching a hole through to the wallpaper.
         if (focus > 0.01f) {
-            thumbHotPaint.setAlpha((int) (255f * focus));
-            canvas.drawOval(thumbRect, thumbHotPaint);
+            hotPaint.setColor(withAlpha(0xFFFFFFFF, 0.92f * focus));
+            canvas.drawRoundRect(thumbShape, halfH, halfH, hotPaint);
         }
 
-        glossRect.set(thumbRect.left + thumbRadius * 0.26f,
-                thumbRect.top + thumbRadius * 0.2f,
-                thumbRect.right - thumbRadius * 0.26f,
-                thumbRect.top + thumbRadius * 0.88f);
-        // Solid fill, so the alpha is baked into the colour: setAlpha() would replace it, not scale it.
-        glossPaint.setColor(withAlpha(0x33FFFFFF, 1f - 0.65f * focus));
-        canvas.drawOval(glossRect, glossPaint);
+        // Subtle top sheen: one soft band across the upper half, fading to nothing before the bottom.
+        float sheenInset = halfH * 0.55f;
+        sheenShape.set(-halfW + sheenInset, -halfH + 1.5f * density,
+                halfW - sheenInset, -halfH + 1.5f * density + thumbHeight * 0.46f);
+        canvas.drawRoundRect(sheenShape, sheenShape.height() / 2f, sheenShape.height() / 2f,
+                sheenPaint);
 
-        thumbRim.setColor(mix(0x5CFFFFFF, 0x2E000000, focus));
-        canvas.drawOval(thumbRect, thumbRim);
+        // 1dp rim, brighter as the pill lifts.
+        thumbRim.setColor(mix(0x38FFFFFF, 0x8CFFFFFF, focus));
+        canvas.drawRoundRect(thumbShape, halfH, halfH, thumbRim);
         canvas.restore();
 
-        // Focus ring stays circular while the body squashes, so the two read as separate layers.
+        // Halo: follows the pill, not a circle, so the two layers read as one object.
         if (focus > 0.01f) {
-            glowPaint.setStrokeWidth(2f * density);
-            glowPaint.setColor(withAlpha(0xE6FFFFFF, focus));
-            canvas.drawCircle(thumbX, centerY, thumbRadius + 5f * density, glowPaint);
+            float pad = 3f * density;
+            float hw = halfW * stretchX + pad;
+            float hh = halfH * stretchY + pad;
+            ringShape.set(thumbX - hw, centerY - hh, thumbX + hw, centerY + hh);
+            ringPaint.setStrokeWidth(1.5f * density);
+            ringPaint.setColor(withAlpha(0xA8FFFFFF, focus));
+            canvas.drawRoundRect(ringShape, hh, hh, ringPaint);
 
-            glowPaint.setStrokeWidth(1f * density);
-            glowPaint.setColor(withAlpha(0x3DFFFFFF, focus));
-            canvas.drawCircle(thumbX, centerY, thumbRadius + 9f * density, glowPaint);
+            hw += 4f * density;
+            hh += 4f * density;
+            ringShape.set(thumbX - hw, centerY - hh, thumbX + hw, centerY + hh);
+            ringPaint.setStrokeWidth(1f * density);
+            ringPaint.setColor(withAlpha(0x24FFFFFF, focus));
+            canvas.drawRoundRect(ringShape, hh, hh, ringPaint);
         }
 
-        // Stop numbers under the track, the active one solid white.
+        // Stop numbers in their own lane below the travel band. The first and last sit just outside
+        // the track's ends and are clamped to the view, so they can never clip on a narrow width.
         float baseline = getHeight() - 7f * density;
         for (int i = 0; i < STOPS; i++) {
-            canvas.drawText(STOP_LABELS[i], xForStop(i), baseline,
-                    i == value ? labelActivePaint : labelPaint);
+            Paint paint = i == value ? labelActivePaint : labelPaint;
+            float half = paint.measureText(STOP_LABELS[i]) / 2f;
+            float x;
+            if (i == 0) {
+                x = Math.max(half + 2f * density, trackRect.left - labelGap);
+            } else if (i == STOPS - 1) {
+                x = Math.min(getWidth() - half - 2f * density, trackRect.right + labelGap);
+            } else {
+                x = xForStop(i);
+            }
+            canvas.drawText(STOP_LABELS[i], x, baseline, paint);
         }
     }
 
