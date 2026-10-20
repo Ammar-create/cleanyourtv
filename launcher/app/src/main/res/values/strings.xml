@@ -94,4 +94,5 @@
     <string name="velvet_layout">Configure layout</string>
     <string name="velvet_hidden_apps">Hidden apps</string>
     <string name="velvet_restore">Restore hidden apps</string>
+    <string name="velvet_wall_use">Use this folder</string>
 </resources>

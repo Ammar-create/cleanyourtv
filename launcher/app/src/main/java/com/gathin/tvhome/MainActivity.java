@@ -172,6 +172,15 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     private static final int REQ_WALLPAPER_FILE = 4101;
     private static final int REQ_WALLPAPER_TREE = 4102;
     private static final int REQ_WALLPAPER_PERM = 4103;
+    private final android.os.Handler wpHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable rotateRunnable = new Runnable() {
+        @Override public void run() {
+            nextFolderWallpaper(false);
+            scheduleRotation();
+        }
+    };
+    private static final int[] INTERVALS = {0, 15, 60, 360};
+    private static final String[] INTERVAL_LABELS = {"every visit", "15 min", "1 hour", "6 hours"};
     /** dock_apps as loaded (config.xml or a theme): a saved Order only applies while these are unchanged. */
     private List<String> dockApps;
     /** fill_dock false: the dock can have empty slots, which reorder mode leaves out and restores afterwards. */
@@ -435,7 +444,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         btnSettings.setOnClickListener(v -> open(systemIntent(Settings.ACTION_SETTINGS)));
         btnReorder = findViewById(R.id.btnReorder);
         btnReorder.setOnClickListener(v -> toggleReorder());
-        btnReorder.setVisibility(cfg.reorderButton ? View.VISIBLE : View.GONE);
+        btnReorder.setVisibility(View.GONE);   // Velvet: only appears while editing the layout
         btnEdit = findViewById(R.id.btnEdit);
         btnEdit.setOnClickListener(v -> showEditMenu());
         btnSettings.setOnLongClickListener(v -> {
@@ -572,7 +581,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     protected void onResume() {
-        if ("folder".equals(wpPrefs().getString("mode", ""))) nextFolderWallpaper(false);
+        if ("folder".equals(wpPrefs().getString("mode", ""))) {
+            if (wpPrefs().getInt("interval_min", 0) == 0) nextFolderWallpaper(false);
+            else scheduleRotation();
+        }
         super.onResume();
         // A festival that started or ended while Home was in the background: rebuild with or without it.
         if (festive != festival.active(LocalDate.now())) {
@@ -691,6 +703,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     @Override
     protected void onPause() {
+        wpHandler.removeCallbacks(rotateRunnable);
         super.onPause();
         endReorder();   // Home or another app while reordering keeps the order so far
         stopAmbientAnimation();
@@ -850,6 +863,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
     /** Ends the mode and saves the order if it changed since the mode started. */
     private void endReorder() {
         if (!reordering) return;
+        hideReorderPill();
         drop();
         reordering = false;
         adapter.setReordering(false);
@@ -1736,7 +1750,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         LinearLayout rows = panel.findViewById(R.id.rows);
         PopupWindow popup = glassPopup(panel, (int) (210 * density));
         addSettingsMenuRow(rows, popup, R.string.velvet_wallpaper, this::showWallpaperMenu);
-        addSettingsMenuRow(rows, popup, R.string.velvet_layout, this::toggleReorder);
+        addSettingsMenuRow(rows, popup, R.string.velvet_layout, this::startLayoutEdit);
         addSettingsMenuRow(rows, popup, R.string.velvet_hidden_apps, this::onLibraryRequested);
         addSettingsMenuRow(rows, popup, R.string.velvet_restore, this::restoreAllHidden);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
@@ -1752,7 +1766,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         PopupWindow popup = glassPopup(panel, (int) (240 * density));
         addSettingsMenuRow(rows, popup, R.string.velvet_wall_default, this::useSystemWallpaper);
         addSettingsMenuRow(rows, popup, R.string.velvet_wall_pick, this::pickWallpaperImage);
-        addSettingsMenuRow(rows, popup, R.string.velvet_wall_folder, this::pickWallpaperFolder);
+        addSettingsMenuRow(rows, popup, R.string.velvet_wall_folder, this::showFolderPicker);
+        addSettingsMenuRow(rows, popup, intervalLabel(), this::cycleInterval);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         popup.setWidth(Math.max((int) (240 * density), panel.getMeasuredWidth()));
         dropIn(popup, panel, anchor, Gravity.END);
@@ -1844,6 +1859,189 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         int index = restart ? 0 : sp.getInt("index", 0) % files.length;
         sp.edit().putInt("index", (index + 1) % files.length).apply();
         showWallpaper(files[index]);
+    }
+
+
+    // ---- Velvet: transient reorder pill + folder picker + rotation schedule --------------------
+
+    /** Reveals the reorder pill with a FLIP: neighbours spring aside instead of the bar re-laying out. */
+    private void revealReorderPill() {
+        if (btnReorder.getVisibility() == View.VISIBLE) return;
+        final android.widget.LinearLayout bar = findViewById(R.id.topButtons);
+        final float[] before = new float[bar.getChildCount()];
+        for (int i = 0; i < before.length; i++) before[i] = bar.getChildAt(i).getX();
+        btnReorder.setVisibility(View.VISIBLE);
+        bar.post(new Runnable() {
+            @Override public void run() {
+                for (int i = 0; i < bar.getChildCount(); i++) {
+                    View v = bar.getChildAt(i);
+                    if (v == btnReorder) {
+                        v.setAlpha(0f);
+                        v.setScaleX(0.72f);
+                        v.setScaleY(0.72f);
+                        v.animate().alpha(1f).scaleX(1f).scaleY(1f)
+                                .setDuration(220)
+                                .setInterpolator(new android.view.animation.OvershootInterpolator(1.15f))
+                                .start();
+                    } else if (i < before.length) {
+                        float dx = before[i] - v.getX();
+                        if (Math.abs(dx) > 0.5f) {
+                            v.setTranslationX(dx);
+                            v.animate().translationX(0f).setDuration(260)
+                                    .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    /** Collapses the pill again once editing ends; the rest of the row springs back. */
+    private void hideReorderPill() {
+        if (btnReorder.getVisibility() != View.VISIBLE) return;
+        final android.widget.LinearLayout bar = findViewById(R.id.topButtons);
+        final float[] before = new float[bar.getChildCount()];
+        for (int i = 0; i < before.length; i++) before[i] = bar.getChildAt(i).getX();
+        btnReorder.animate().alpha(0f).scaleX(0.72f).scaleY(0.72f).setDuration(140)
+                .withEndAction(new Runnable() {
+                    @Override public void run() {
+                        btnReorder.setVisibility(View.GONE);
+                        bar.post(new Runnable() {
+                            @Override public void run() {
+                                for (int i = 0; i < bar.getChildCount(); i++) {
+                                    View v = bar.getChildAt(i);
+                                    if (v == btnReorder || i >= before.length) continue;
+                                    float dx = before[i] - v.getX();
+                                    if (Math.abs(dx) > 0.5f) {
+                                        v.setTranslationX(dx);
+                                        v.animate().translationX(0f).setDuration(240)
+                                                .setInterpolator(new android.view.animation.DecelerateInterpolator(1.6f)).start();
+                                    }
+                                }
+                            }
+                        });
+                    }
+                }).start();
+    }
+
+    /** Pencil -> Configure layout: show the tool, then start the mode. */
+    private void startLayoutEdit() {
+        revealReorderPill();
+        if (!reordering) toggleReorder();
+    }
+
+    private String intervalLabel() {
+        int cur = wpPrefs().getInt("interval_min", 0);
+        String label = INTERVAL_LABELS[0];
+        for (int i = 0; i < INTERVALS.length; i++) if (INTERVALS[i] == cur) label = INTERVAL_LABELS[i];
+        return "Change every: " + label;
+    }
+
+    private void cycleInterval() {
+        int cur = wpPrefs().getInt("interval_min", 0);
+        int idx = 0;
+        for (int i = 0; i < INTERVALS.length; i++) if (INTERVALS[i] == cur) idx = i;
+        int next = INTERVALS[(idx + 1) % INTERVALS.length];
+        wpPrefs().edit().putInt("interval_min", next).apply();
+        scheduleRotation();
+        Toast.makeText(this, intervalLabel(), Toast.LENGTH_SHORT).show();
+    }
+
+    private void scheduleRotation() {
+        wpHandler.removeCallbacks(rotateRunnable);
+        int mins = wpPrefs().getInt("interval_min", 0);
+        if (mins > 0 && "folder".equals(wpPrefs().getString("mode", "")))
+            wpHandler.postDelayed(rotateRunnable, mins * 60_000L);
+    }
+
+    /** In-app folder browser: this TV ships no DocumentsUI, so a picker cannot be delegated. */
+    private void showFolderPicker() {
+        if (checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_EXTERNAL_STORAGE}, REQ_WALLPAPER_PERM);
+            return;
+        }
+        final String start = wpPrefs().getString("dir", Environment.getExternalStorageDirectory().getAbsolutePath());
+        buildFolderDialog(start);
+    }
+
+    private void buildFolderDialog(final String path) {
+        final Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        android.widget.LinearLayout wrap = new android.widget.LinearLayout(this);
+        wrap.setOrientation(android.widget.LinearLayout.VERTICAL);
+        wrap.setBackgroundResource(R.drawable.glass_panel);
+        int pad = (int) (10 * density);
+        wrap.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(this);
+        title.setText(path);
+        title.setTextSize(13);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.START);
+        title.setTextColor(0xFFFFFFFF);
+        title.setPadding(pad, pad, pad, pad);
+        wrap.addView(title);
+
+        final android.widget.ScrollView scroll = new android.widget.ScrollView(this);
+        final android.widget.LinearLayout rows = new android.widget.LinearLayout(this);
+        rows.setOrientation(android.widget.LinearLayout.VERTICAL);
+        scroll.addView(rows);
+        wrap.addView(scroll, new android.widget.LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, (int) (330 * density)));
+
+        View use = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        use.findViewById(R.id.icon).setVisibility(View.GONE);
+        use.findViewById(R.id.dot).setVisibility(View.GONE);
+        use.findViewById(R.id.status).setVisibility(View.GONE);
+        ((TextView) use.findViewById(R.id.title)).setText(R.string.velvet_wall_use);
+        use.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                wpPrefs().edit().putString("mode", "folder").putString("dir", path).putInt("index", 0).apply();
+                nextFolderWallpaper(true);
+                scheduleRotation();
+                dialog.dismiss();
+            }
+        });
+        rows.addView(use);
+
+        java.io.File dir = new java.io.File(path);
+        java.io.File[] subs = dir.listFiles();
+        if (subs != null) {
+            java.util.Arrays.sort(subs, new java.util.Comparator<java.io.File>() {
+                @Override public int compare(java.io.File a, java.io.File b) {
+                    return a.getName().compareToIgnoreCase(b.getName());
+                }
+            });
+            java.io.File parent = dir.getParentFile();
+            if (parent != null) rows.addView(folderRow(rows, "\u2190 " + parent.getName(), parent, dialog));
+            for (final java.io.File f : subs) {
+                if (!f.isDirectory() || f.getName().startsWith(".")) continue;
+                rows.addView(folderRow(rows, f.getName(), f, dialog));
+            }
+        }
+
+        dialog.setContentView(wrap);
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dialog.getWindow().setLayout((int) (420 * density), ViewGroup.LayoutParams.WRAP_CONTENT);
+        }
+        dialog.show();
+    }
+
+    private View folderRow(android.widget.LinearLayout rows, String label, final java.io.File dir, final Dialog dialog) {
+        View row = getLayoutInflater().inflate(R.layout.item_input, rows, false);
+        row.findViewById(R.id.icon).setVisibility(View.GONE);
+        row.findViewById(R.id.dot).setVisibility(View.GONE);
+        row.findViewById(R.id.status).setVisibility(View.GONE);
+        ((TextView) row.findViewById(R.id.title)).setText(label);
+        row.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                dialog.dismiss();
+                buildFolderDialog(dir.getAbsolutePath());
+            }
+        });
+        return row;
     }
 
     private void showInputs() {
