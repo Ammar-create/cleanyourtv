@@ -2059,7 +2059,8 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
 
     /** The app-sampled glow stays for the stock background; a custom photo gets a clean one. */
     private int velvetAmbient(int position) {
-        return customWallpaper() ? 0x00FFFFFF : adapter.ambientColorAt(position);
+        boolean photoShowing = wallpaperView != null && wallpaperView.getParent() == root;
+        return photoShowing ? 0xFF101010 : adapter.ambientColorAt(position);
     }
 
     /** Re-applies the chosen wallpaper after a restart or an APK update. */
