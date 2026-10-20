@@ -1752,12 +1752,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener {
         View panel = getLayoutInflater().inflate(R.layout.popup_menu_scroll, root, false);
         LinearLayout rows = panel.findViewById(R.id.rows);
         PopupWindow popup = glassPopup(panel, (int) (230 * density));
+        addSettingsMenuRow(rows, popup, R.string.launcher_settings, () -> startActivityForResult(
+                new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST));
         addSettingsMenuRow(rows, popup, R.string.velvet_wallpaper, this::showWallpaperMenu);
         addSettingsMenuRow(rows, popup, R.string.velvet_layout, this::startLayoutEdit);
         addSettingsMenuRow(rows, popup, R.string.velvet_hidden_apps, this::onLibraryRequested);
         addSettingsMenuRow(rows, popup, R.string.velvet_restore, this::restoreAllHidden);
-        addSettingsMenuRow(rows, popup, R.string.launcher_settings, () -> startActivityForResult(
-                new Intent(this, LauncherSettingsActivity.class), LAUNCHER_SETTINGS_REQUEST));
         if (moduleCards) addSettingsMenuRow(rows, popup, R.string.module_cards, this::showModuleCards);
         panel.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
         popup.setWidth(Math.max((int) (230 * density), panel.getMeasuredWidth()));
